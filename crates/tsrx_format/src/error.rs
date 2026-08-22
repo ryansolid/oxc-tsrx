@@ -71,6 +71,9 @@ pub enum FormatError {
     /// An option name this formatter does not recognize, which it never ignores silently.
     UnknownOption { option: String, scope: ConfigScope },
     /// A known Oxfmt option that needs a surface outside the pinned formatter boundary.
+    ///
+    /// `sortImports` and `sortTailwindcss` still reach this; `jsdoc` no longer does, because the
+    /// pinned formatter takes it through the adapter's own options.
     UnavailableOption { option: &'static str, scope: ConfigScope },
     /// `embeddedLanguageFormatting`, which needs canonical embedded-language callbacks.
     EmbeddedLanguageFormattingUnavailable { scope: ConfigScope },

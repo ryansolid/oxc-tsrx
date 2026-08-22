@@ -4,11 +4,13 @@ use std::{error::Error, fmt, str::FromStr, time::Instant};
 
 use oxc_allocator::Allocator;
 use oxc_formatter::{
-    ArrowParentheses, AttributePosition, BracketSameLine, BracketSpacing,
-    EmbeddedLanguageFormatting, Expand, JsFormatOptions, QuoteProperties, QuoteStyle, Semicolons,
-    TrailingCommas, format_program, parse_for_format,
+    ArrowParentheses, AttributePosition, BracketSameLine, BracketSpacing, CommentLineStrategy,
+    EmbeddedLanguageFormatting, Expand, JsFormatOptions, JsdocOptions, LineWrappingStyle,
+    QuoteProperties, QuoteStyle, Semicolons, TrailingCommas, format_program, parse_for_format,
 };
 use oxc_formatter_core::{IndentStyle, IndentWidth, LineEnding, LineWidth};
+use serde::Deserialize;
+use serde_json::Value;
 
 use super::timings::{FormatEngineTimings, elapsed_ns};
 use crate::{DynamicTagContract, DynamicTagError, SourceKind, validate_dynamic_tags};
@@ -135,6 +137,74 @@ pub struct FormatOptions {
     pub single_attribute_per_line: Option<bool>,
     pub embedded_language_formatting: Option<String>,
     pub html_whitespace_sensitivity: Option<String>,
+    /// Oxfmt's `jsdoc` option, parsed by [`FormatOptions::set_jsdoc`].
+    pub jsdoc: Option<JsdocSetting>,
+}
+
+/// Whether one configuration scope turns `jsdoc` comment formatting on, and with which
+/// sub-options.
+///
+/// Canonical Oxfmt spells this option `true`, `false`, or an object. The disabled form stays a
+/// value rather than an absent option so one `overrides` entry can turn the option back off for
+/// the files it matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum JsdocSetting {
+    Disabled,
+    Enabled(JsdocConfig),
+}
+
+/// The sub-options canonical Oxfmt reads out of a `jsdoc` object.
+///
+/// Every field stays `None` when the author did not write it, so the pinned formatter's own
+/// defaults decide. The two string fields are validated where every other named option is, in
+/// [`js_format_options`], and unknown fields are refused rather than silently ignored.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct JsdocConfig {
+    pub capitalize_descriptions: Option<bool>,
+    pub description_with_dot: Option<bool>,
+    pub add_default_to_description: Option<bool>,
+    pub prefer_code_fences: Option<bool>,
+    pub line_wrapping_style: Option<String>,
+    pub comment_line_strategy: Option<String>,
+    pub separate_tag_groups: Option<bool>,
+    pub separate_returns_from_param: Option<bool>,
+    pub bracket_spacing: Option<bool>,
+    pub description_tag: Option<bool>,
+    pub keep_unparsable_example_indent: Option<bool>,
+}
+
+impl FormatOptions {
+    /// Reads Oxfmt's `jsdoc` option out of one JSON configuration value.
+    ///
+    /// Callers hand over the raw JSON because the parsed shape is this adapter's own, which keeps
+    /// the `true | false | object` form canonical Oxfmt documents in the one module allowed to
+    /// know how the pinned formatter spells it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FormatOptionError`] when the value is neither a boolean nor an object of the
+    /// sub-options canonical Oxfmt accepts.
+    pub fn set_jsdoc(&mut self, value: &Value) -> Result<(), FormatOptionError> {
+        let setting = match value {
+            Value::Bool(false) => JsdocSetting::Disabled,
+            Value::Bool(true) => JsdocSetting::Enabled(JsdocConfig::default()),
+            Value::Object(_) => {
+                JsdocSetting::Enabled(serde_json::from_value(value.clone()).map_err(|error| {
+                    FormatOptionError::named("jsdoc", &value.to_string(), error)
+                })?)
+            }
+            other => {
+                return Err(FormatOptionError::named(
+                    "jsdoc",
+                    &other.to_string(),
+                    "expected `true`, `false`, or an object of JSDoc options",
+                ));
+            }
+        };
+        self.jsdoc = Some(setting);
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -261,7 +331,76 @@ fn js_format_options(options: &FormatOptions) -> Result<JsFormatOptions, FormatO
             _ => return Err(FormatOptionError::unrecognized("htmlWhitespaceSensitivity", value)),
         };
     }
+    if let Some(setting) = &options.jsdoc {
+        resolved.jsdoc = jsdoc_options(setting)?;
+    }
     Ok(resolved)
+}
+
+/// Maps the project-owned `jsdoc` option onto the pinned formatter's own options.
+///
+/// The two string sub-options quote canonical Oxfmt's wording for an invalid value, the way every
+/// other named option here does.
+fn jsdoc_options(setting: &JsdocSetting) -> Result<Option<JsdocOptions>, FormatOptionError> {
+    let JsdocSetting::Enabled(config) = setting else {
+        return Ok(None);
+    };
+    let mut resolved = JsdocOptions::default();
+    if let Some(value) = config.capitalize_descriptions {
+        resolved.capitalize_descriptions = value;
+    }
+    if let Some(value) = config.description_with_dot {
+        resolved.description_with_dot = value;
+    }
+    if let Some(value) = config.add_default_to_description {
+        resolved.add_default_to_description = value;
+    }
+    if let Some(value) = config.prefer_code_fences {
+        resolved.prefer_code_fences = value;
+    }
+    if let Some(value) = &config.line_wrapping_style {
+        resolved.line_wrapping_style = match value.as_str() {
+            "greedy" => LineWrappingStyle::Greedy,
+            "balance" => LineWrappingStyle::Balance,
+            _ => {
+                return Err(FormatOptionError::named(
+                    "jsdoc lineWrappingStyle",
+                    value,
+                    "Expected \"greedy\" or \"balance\".",
+                ));
+            }
+        };
+    }
+    if let Some(value) = &config.comment_line_strategy {
+        resolved.comment_line_strategy = match value.as_str() {
+            "singleLine" => CommentLineStrategy::SingleLine,
+            "multiline" => CommentLineStrategy::Multiline,
+            "keep" => CommentLineStrategy::Keep,
+            _ => {
+                return Err(FormatOptionError::named(
+                    "jsdoc commentLineStrategy",
+                    value,
+                    "Expected \"singleLine\", \"multiline\", or \"keep\".",
+                ));
+            }
+        };
+    }
+    if let Some(value) = config.separate_tag_groups {
+        resolved.separate_tag_groups = value;
+    }
+    if let Some(value) = config.separate_returns_from_param {
+        resolved.separate_returns_from_param = value;
+    }
+    if let Some(value) = config.bracket_spacing {
+        resolved.bracket_spacing = value;
+    }
+    if let Some(value) = config.description_tag {
+        resolved.description_tag = value;
+    }
+    if let Some(value) = config.keep_unparsable_example_indent {
+        resolved.keep_unparsable_example_indent = value;
+    }
+    Ok(Some(resolved))
 }
 
 #[cfg(test)]

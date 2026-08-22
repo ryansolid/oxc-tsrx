@@ -509,6 +509,48 @@ test("ignorePatterns leave ignored files byte-identical while formatting the res
   assert.equal(await readFile(ignored, "utf8"), source);
 });
 
+test("a discovered jsdoc config formats .tsrx files, and one override turns it back off", async () => {
+  // Overrides match the path an authored file has under the config root, so this directory is
+  // resolved through its real path the way every other override test here does.
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), "oxc-tsrx-format-jsdoc-")));
+  await mkdir(join(cwd, "legacy"), { recursive: true });
+  const authored =
+    '/**    counts   things   */\nexport function View() @{const value="hello";<p>{value}</p>}\n';
+  const documented = join(cwd, "View.tsrx");
+  const legacy = join(cwd, "legacy", "View.tsrx");
+  await writeFile(
+    join(cwd, ".oxfmtrc.json"),
+    `${JSON.stringify(
+      {
+        semi: false,
+        jsdoc: true,
+        overrides: [{ files: ["legacy/**"], options: { jsdoc: false } }],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await writeFile(documented, authored);
+  await writeFile(legacy, authored);
+
+  // Before this option was implemented the same config exited 2 without writing anything.
+  const result = await runFormat(cwd, ["--write", documented, legacy]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  assert.doesNotMatch(result.stderr, /not available for TSRX/i);
+
+  const formatted = await readFile(documented, "utf8");
+  assert.match(formatted, /^\/\*\* Counts things \*\//);
+  assert.match(formatted, /const value = "hello"\n/);
+
+  // The override matched, so this file was formatted with JSDoc formatting off.
+  const overridden = await readFile(legacy, "utf8");
+  assert.match(overridden, /^\/\*\*    counts   things   \*\//);
+  assert.match(overridden, /const value = "hello"\n/);
+
+  const check = await runFormat(cwd, ["--check", documented, legacy]);
+  assert.equal(check.code, 0, check.stderr || check.stdout);
+});
+
 test("unsupported callback-backed options, editorconfig, and JS config modules fail before output or writes", async () => {
   const cases = [
     {

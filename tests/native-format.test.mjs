@@ -132,6 +132,57 @@ test('invalid TSRX returns no formatted output', async () => {
   assert.match(result.stderr, /parse|expected|unexpected/i);
 });
 
+test('a jsdoc config reflows JSDoc in .tsrx and matches canonical Oxfmt on ordinary TS', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'oxc-tsrx-format-jsdoc-'));
+  const configPath = join(directory, '.oxfmtrc.json');
+  const doc = ['/**', '*   counts   things', '*  @param {number}   start   the first value', '*/'];
+  const tsrx = `${doc.join('\n')}\nexport function View({start}:{start:number}) @{<p>{start}</p>}\n`;
+  const ts = `${doc.join('\n')}\nexport function view(start:number){return start+1}\n`;
+  // The reflowed comment canonical Oxfmt produces for that source: the description is
+  // capitalized, the runs of spaces collapse, and a blank line opens the tag group.
+  const reflowed = [
+    '/**',
+    ' * Counts things',
+    ' *',
+    ' * @param {number} start The first value',
+    ' */',
+  ].join('\n');
+
+  await writeFile(configPath, '{ "semi": false, "jsdoc": true }\n');
+  const [component, control, stock] = await Promise.all([
+    runFormat([`--config=${configPath}`, '--stdin-filepath=View.tsrx'], tsrx),
+    runFormat([`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+    run(stockBinary, [`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+  ]);
+  assert.equal(component.code, 0, component.stderr || component.stdout);
+  assert.equal(component.stderr, '');
+  assert.ok(component.stdout.startsWith(`${reflowed}\n`), component.stdout);
+  assert.match(component.stdout, /@\{\n {2};<p>\{start\}<\/p>\n\}/);
+  assert.equal(stock.code, 0, stock.stderr || stock.stdout);
+  assert.equal(control.stdout, stock.stdout);
+
+  const again = await runFormat([`--config=${configPath}`, '--stdin-filepath=View.tsrx'], component.stdout);
+  assert.equal(again.code, 0, again.stderr || again.stdout);
+  assert.equal(again.stdout, component.stdout);
+
+  // The object form reaches the same engine, with the sub-options it names.
+  await writeFile(
+    configPath,
+    '{ "jsdoc": { "commentLineStrategy": "multiline", "descriptionWithDot": true } }\n',
+  );
+  const object = await runFormat([`--config=${configPath}`, '--stdin-filepath=View.tsrx'], tsrx);
+  assert.equal(object.code, 0, object.stderr || object.stdout);
+  assert.ok(object.stdout.startsWith('/**\n * Counts things.\n'), object.stdout);
+  assert.match(object.stdout, /@param \{number\} start The first value\./);
+
+  // A value the pinned formatter cannot use is still refused, in its own wording.
+  await writeFile(configPath, '{ "jsdoc": { "lineWrappingStyle": "wrap" } }\n');
+  const rejected = await runFormat([`--config=${configPath}`, '--stdin-filepath=View.tsrx'], tsrx);
+  assert.equal(rejected.code, 2, rejected.stderr || rejected.stdout);
+  assert.equal(rejected.stdout, '');
+  assert.match(rejected.stderr, /jsdoc lineWrappingStyle `wrap`/);
+});
+
 test('ordinary JS, JSX, TS, and TSX take the canonical format path byte-for-byte', async () => {
   const cases = {
     'ordinary.js': 'export function value( ){return {answer:1}}\n',

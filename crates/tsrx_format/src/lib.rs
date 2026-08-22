@@ -134,6 +134,8 @@ struct RawFormatOptions {
     insert_final_newline: Option<bool>,
     sort_imports: Option<Value>,
     sort_tailwindcss: Option<Value>,
+    /// Oxfmt's `true | false | object` doc-comment option, kept as JSON until the adapter parses
+    /// it into its own revision-independent shape.
     jsdoc: Option<Value>,
     experimental_operator_position: Option<Value>,
     experimental_ternaries: Option<Value>,
@@ -297,6 +299,7 @@ impl FileFormatOptions {
             single_attribute_per_line,
             embedded_language_formatting,
             html_whitespace_sensitivity,
+            jsdoc,
         );
         if other.insert_final_newline.is_some() {
             self.insert_final_newline = other.insert_final_newline;
@@ -357,34 +360,37 @@ impl RawFormatOptions {
         }
         reject_enabled_value(scope, "sortImports", sort_imports)?;
         reject_enabled_value(scope, "sortTailwindcss", sort_tailwindcss)?;
-        reject_enabled_value(scope, "jsdoc", jsdoc)?;
         if embedded_language_formatting.is_some() {
             return Err(FormatError::EmbeddedLanguageFormattingUnavailable { scope });
         }
         if experimental_operator_position.is_some() || experimental_ternaries.is_some() {
             return Err(FormatError::ExperimentalOptions { scope });
         }
-        Ok(FileFormatOptions {
-            engine: EngineFormatOptions {
-                use_tabs,
-                tab_width,
-                end_of_line,
-                print_width,
-                single_quote,
-                jsx_single_quote,
-                quote_props,
-                trailing_comma,
-                semi,
-                arrow_parens,
-                bracket_spacing,
-                bracket_same_line,
-                object_wrap,
-                single_attribute_per_line,
-                embedded_language_formatting: None,
-                html_whitespace_sensitivity,
-            },
-            insert_final_newline,
-        })
+        let mut engine = EngineFormatOptions {
+            use_tabs,
+            tab_width,
+            end_of_line,
+            print_width,
+            single_quote,
+            jsx_single_quote,
+            quote_props,
+            trailing_comma,
+            semi,
+            arrow_parens,
+            bracket_spacing,
+            bracket_same_line,
+            object_wrap,
+            single_attribute_per_line,
+            embedded_language_formatting: None,
+            html_whitespace_sensitivity,
+            jsdoc: None,
+        };
+        // The adapter owns this option's shape, so an unusable `jsdoc` value is reported in the
+        // same wording a bad value for any other Oxfmt option gets.
+        if let Some(jsdoc) = jsdoc {
+            engine.set_jsdoc(&jsdoc).map_err(|error| FormatError::Engine(error.into()))?;
+        }
+        Ok(FileFormatOptions { engine, insert_final_newline })
     }
 }
 
@@ -654,11 +660,152 @@ fn elapsed_ns(started: Instant) -> u64 {
 mod tests {
     use std::path::Path;
 
+    use serde_json::{Value, json};
+
     use super::{
         EMBEDDED_CSS_FORMAT_NS, EMBEDDED_CSS_MODE, EMBEDDED_CSS_PARSE_COUNT,
         EMBEDDED_CSS_USES_SUBPROCESS, EngineFormatOptions, FileFormatOptions, FormatMode,
         format_text, format_text_with_options,
     };
+
+    /// The options one `.oxfmtrc.json` carrying only a `jsdoc` value resolves to.
+    fn jsdoc_options(value: &Value) -> FileFormatOptions {
+        let mut engine = EngineFormatOptions::default();
+        engine.set_jsdoc(value).expect("a usable jsdoc option");
+        FileFormatOptions { engine, insert_final_newline: None }
+    }
+
+    #[test]
+    fn jsdoc_reflows_a_doc_comment_over_tsrx_control_flow_and_converges() {
+        let source = concat!(
+            "/**\n",
+            "*    counts   things\n",
+            "*   @param {number}   start    the first value\n",
+            "* @returns {number} the next value\n",
+            "*/\n",
+            "export function View({start,ready}:{start:number;ready:boolean}) @{",
+            "@if(ready){<p>{start}</p>}@else{<span>no</span>}}\n",
+        );
+        let options = jsdoc_options(&json!(true));
+        let first =
+            format_text_with_options(Path::new("Doc.tsrx"), source, Some(&options)).unwrap();
+        assert_eq!(first.metadata.mode, FormatMode::Projected);
+        assert_eq!(first.metadata.parse_count, 1);
+        assert!(
+            first.code.contains(concat!(
+                "/**\n",
+                " * Counts things\n",
+                " *\n",
+                " * @param {number} start The first value\n",
+                " * @returns {number} The next value\n",
+                " */\n",
+            )),
+            "{}",
+            first.code
+        );
+        assert!(first.code.contains("@if (ready) {"), "{}", first.code);
+        assert!(first.code.contains("} @else {"), "{}", first.code);
+        assert!(!first.code.contains("_t"), "{}", first.code);
+
+        let second =
+            format_text_with_options(Path::new("Doc.tsrx"), &first.code, Some(&options)).unwrap();
+        assert_eq!(second.code, first.code);
+        assert!(!second.changed);
+
+        // Without the option the same comment is left exactly as it was authored.
+        let untouched = format_text(Path::new("Doc.tsrx"), source).unwrap();
+        assert!(untouched.code.contains("counts   things"), "{}", untouched.code);
+    }
+
+    #[test]
+    fn the_jsdoc_object_form_selects_sub_options_and_reports_unusable_ones() {
+        let source = "/**    counts   things   */\nexport function View() @{<p>hi</p>}\n";
+        let dotted = format_text_with_options(
+            Path::new("Doc.tsrx"),
+            source,
+            Some(&jsdoc_options(&json!({ "descriptionWithDot": true }))),
+        )
+        .unwrap();
+        assert!(dotted.code.starts_with("/** Counts things. */"), "{}", dotted.code);
+
+        let multiline = format_text_with_options(
+            Path::new("Doc.tsrx"),
+            source,
+            Some(&jsdoc_options(&json!({ "commentLineStrategy": "multiline" }))),
+        )
+        .unwrap();
+        assert!(multiline.code.starts_with("/**\n * Counts things\n */"), "{}", multiline.code);
+
+        let disabled = format_text_with_options(
+            Path::new("Doc.tsrx"),
+            source,
+            Some(&jsdoc_options(&json!(false))),
+        )
+        .unwrap();
+        assert!(disabled.code.starts_with("/**    counts   things   */"), "{}", disabled.code);
+
+        // An unusable enum string is reported in canonical Oxfmt's own wording.
+        let error = format_text_with_options(
+            Path::new("Doc.tsrx"),
+            source,
+            Some(&jsdoc_options(&json!({ "lineWrappingStyle": "wrap" }))),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("jsdoc lineWrappingStyle `wrap`"), "{error}");
+        assert!(error.contains("greedy"), "{error}");
+        assert!(error.contains("balance"), "{error}");
+
+        // A misspelled sub-option is refused rather than silently ignored.
+        let mut engine = EngineFormatOptions::default();
+        let rejected =
+            engine.set_jsdoc(&json!({ "capitalizeDescription": true })).unwrap_err().to_string();
+        assert!(rejected.contains("capitalizeDescription"), "{rejected}");
+        let rejected = engine.set_jsdoc(&json!("always")).unwrap_err().to_string();
+        assert!(rejected.contains("jsdoc"), "{rejected}");
+    }
+
+    #[test]
+    fn jsdoc_leaves_projection_markers_and_raw_style_payloads_alone() {
+        let payload = "/**   raw   doc  */ .card{color:red}";
+        let source = format!(
+            "export function View({{ok}}:{{ok:boolean}}) @{{<main><style>{payload}</style>\
+             @if(ok){{<p>hi</p>}}</main>}}\n"
+        );
+        let options = jsdoc_options(&json!(true));
+        let first =
+            format_text_with_options(Path::new("Style.tsrx"), &source, Some(&options)).unwrap();
+        assert_eq!(first.metadata.style_count, 1);
+        assert_eq!(first.metadata.embedded_parse_count, 0);
+        // The style payload is a checked opaque region, so a JSDoc-shaped comment inside it is
+        // still not code and stays byte-identical.
+        assert!(first.code.contains(payload), "{}", first.code);
+        assert!(!first.code.contains("_t"), "{}", first.code);
+
+        let second =
+            format_text_with_options(Path::new("Style.tsrx"), &first.code, Some(&options)).unwrap();
+        assert_eq!(second.code, first.code);
+    }
+
+    #[test]
+    fn jsdoc_keeps_a_dynamic_tag_region_byte_identical() {
+        let source = concat!(
+            "export function View({Tag,ok}:{Tag:string;ok:boolean}) @{",
+            "<main>@if(ok){<{Tag}>hi</{Tag /**   inner   doc  */}>}</main>}\n",
+        );
+        let first = format_text_with_options(
+            Path::new("Dyn.tsrx"),
+            source,
+            Some(&jsdoc_options(&json!(true))),
+        )
+        .unwrap();
+        // The lift restores a dynamic-tag region from the authored bytes, so the comment written
+        // inside its braces comes back exactly as authored rather than reflowed.
+        assert_eq!(first.code.matches("/**   inner   doc  */").count(), 1, "{}", first.code);
+        assert!(first.code.contains("<{Tag}>"), "{}", first.code);
+        assert!(first.code.contains("</{Tag}>"), "{}", first.code);
+        assert!(!first.code.contains("_t"), "{}", first.code);
+    }
 
     #[test]
     fn embedded_css_boundary_is_keep_raw_without_hidden_work() {
