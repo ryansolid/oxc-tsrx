@@ -193,6 +193,39 @@ and also `config/format.json`; both sample files still use double quotes, so
 
 <!-- terminal-demo:configuration-format -->
 
+### `sortImports` and `jsdoc`
+
+These two go beyond layout, and both apply to `.tsrx`. Each takes the values
+Oxfmt already documents: `true` for its defaults, `false` to turn it off, or an
+object naming sub-options.
+
+| Option | What it does | Object sub-options |
+| --- | --- | --- |
+| `sortImports` | Reorders imports, one back-to-back run at a time, so a run below a component never moves above it. | `groups`, `customGroups`, `newlinesBetween`, `order`, `ignoreCase`, `internalPattern`, `partitionByNewline`, `partitionByComment`, `sortSideEffects` |
+| `jsdoc` | Reflows `/** ... */` comments: collapses runs of spaces, capitalizes descriptions, lines up `@param` and `@returns`. | `commentLineStrategy`, `lineWrappingStyle`, `descriptionWithDot`, `capitalizeDescriptions`, `separateTagGroups`, `separateReturnsFromParam`, `preferCodeFences`, `bracketSpacing`, and the rest |
+
+```json
+{
+  "semi": false,
+  "sortImports": { "newlinesBetween": false, "groups": ["external", "unknown"] },
+  "jsdoc": true
+}
+```
+
+Oxfmt's older `experimentalSortImports` spelling is read as an alias for
+`sortImports`, so a config that still uses it keeps working. It is the one
+`experimental*` key that is not refused.
+
+Both keys also work inside `overrides`, so one entry can turn either option off
+for the files it matches. A misspelled sub-option or a value the formatter
+cannot use is refused with an error rather than quietly ignored, the same as any
+other named Oxfmt option.
+
+On `.ts` and `.tsx` files both options behave exactly as stock Oxfmt does, byte
+for byte. On `.tsrx`, one thing is carried over rather than reformatted: a
+dynamic tag's region is restored from the bytes you wrote, so a doc comment
+written inside one comes back as you authored it instead of being reflowed.
+
 ## What is refused
 
 Everything below stops the command with an error before anything is parsed,
@@ -208,9 +241,10 @@ Linting refuses:
 Formatting refuses:
 
 - a config written as a JavaScript or TypeScript module, and `.editorconfig`;
-- `sortImports`, `sortTailwindcss`, `jsdoc`, and `embeddedLanguageFormatting`
-  when they are switched on;
-- experimental options, and unknown keys that would affect `.tsrx`.
+- `sortTailwindcss` and `embeddedLanguageFormatting` when they are switched on,
+  because both need a callback surface outside the pinned formatter;
+- experimental options apart from the `experimentalSortImports` alias, and
+  unknown keys that would affect `.tsrx`.
 
 The standalone binaries are deliberately small: they take named files and print
 JSON, and nothing else. Directories, globs, the ordinary report format, and

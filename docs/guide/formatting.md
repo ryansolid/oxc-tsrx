@@ -76,8 +76,41 @@ already use all apply: `printWidth`, `singleQuote`, `semi`, `tabWidth`,
 
 A few options are refused with a clear error before anything is written,
 because they would change `.tsrx` output in ways this project cannot yet
-guarantee: `sortImports`, `jsdoc`, embedded-language formatting, experimental
+guarantee: `sortTailwindcss`, embedded-language formatting, experimental
 flags, `.editorconfig`, and JS or TS config files.
+
+### Sorting imports and formatting JSDoc
+
+`sortImports` and `jsdoc` both work on `.tsrx`, with the same values Oxfmt
+already takes: `true`, `false`, or an object of sub-options.
+
+`sortImports` reorders your import statements. It sorts each run of
+back-to-back imports on its own, so a run that sits below a component never
+climbs above it. `true` gets Oxfmt's defaults, and the object form takes
+`groups`, `customGroups`, `newlinesBetween`, `order`, `ignoreCase`,
+`internalPattern`, and the rest. Oxfmt's older `experimentalSortImports`
+spelling is read as an alias for the same option.
+
+`jsdoc` reflows your `/** ... */` doc comments: it collapses runs of spaces,
+capitalizes descriptions, and lines up `@param` and `@returns` tags. `true`
+gets Oxfmt's defaults, and the object form takes `commentLineStrategy`,
+`lineWrappingStyle`, `descriptionWithDot`, `separateTagGroups`, and the rest.
+
+```json
+{
+  "sortImports": true,
+  "jsdoc": { "commentLineStrategy": "multiline" }
+}
+```
+
+Both options work the same way on `.ts` and `.tsx` files, where the output is
+byte-for-byte what stock Oxfmt produces. A misspelled sub-option or an
+unusable value is refused with an error rather than quietly ignored.
+
+One caveat for `jsdoc`. A dynamic tag's region is restored from the bytes you
+wrote, not reprinted, so a doc comment written inside one comes back exactly as
+you authored it instead of being reflowed. Everything outside those regions is
+formatted normally.
 
 ## CSS inside `<style>` is preserved, not formatted
 
