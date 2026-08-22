@@ -250,12 +250,23 @@ pub struct NewlinesBetweenMarker {
 }
 
 /// One `customGroups` entry: a name usable in `groups`, plus what it matches.
+///
+/// `groupName` is required. A container-level `default` would let an entry omit it, read the
+/// entry as the empty name, and then let a `groups` entry of `""` resolve against it, so a typo
+/// would define a group instead of being refused.
+///
+/// `elementNamePattern` stays optional because canonical Oxfmt reads an empty pattern list as
+/// "matches every import", which is how a group selected purely by `selector` or `modifiers` is
+/// written; its own `custom_groups_selector_modifiers` fixture authors one that way.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SortImportsCustomGroup {
     pub group_name: String,
+    #[serde(default)]
     pub element_name_pattern: Vec<String>,
+    #[serde(default)]
     pub selector: Option<String>,
+    #[serde(default)]
     pub modifiers: Option<Vec<String>>,
 }
 
@@ -679,7 +690,12 @@ fn jsdoc_options(setting: &JsdocSetting) -> Result<Option<JsdocOptions>, FormatO
 
 #[cfg(test)]
 mod tests {
-    use super::{DynamicTagContract, FormatError, FormatRequest, SourceKind, format};
+    use serde_json::json;
+
+    use super::{
+        DynamicTagContract, FormatError, FormatOptions, FormatRequest, SourceKind, Value, format,
+        sort_imports_options,
+    };
 
     fn format_dynamic(expression: &str) -> Result<String, FormatError> {
         let source = format!("const value = <_t0_D0 _t0_A0_={{{expression}}} _t0_Z0_={{null}} />;");
@@ -740,5 +756,42 @@ mod tests {
             assert!(error.contains("dynamic tag"), "{expression}: {error}");
             assert!(error.contains("source byte 0"), "{expression}: {error}");
         }
+    }
+
+    /// One authored `sortImports` value taken all the way to the pinned formatter's own options,
+    /// which is where a `groups` entry is checked against the custom groups that define it.
+    fn resolve_sort_imports(value: &Value) -> Result<(), String> {
+        let mut options = FormatOptions::default();
+        options.set_sort_imports(value).map_err(|error| error.to_string())?;
+        let setting = options.sort_imports.as_ref().expect("a sortImports setting");
+        sort_imports_options(setting).map(|_| ()).map_err(|error| error.to_string())
+    }
+
+    #[test]
+    fn a_custom_group_without_a_group_name_is_refused() {
+        // Omitting `groupName` names no group at all, so it is refused by name rather than read
+        // as the empty name.
+        let missing = resolve_sort_imports(&json!({
+            "customGroups": [{ "elementNamePattern": ["~/stores/*"] }],
+            "groups": ["stores", "unknown"],
+        }))
+        .unwrap_err();
+        assert!(missing.contains("missing field `groupName`"), "{missing}");
+
+        // With that entry refused, the empty name it used to define resolves in no `groups` list.
+        let empty = resolve_sort_imports(&json!({
+            "customGroups": [{ "groupName": "stores", "elementNamePattern": ["~/stores/*"] }],
+            "groups": ["", "unknown"],
+        }))
+        .unwrap_err();
+        assert!(empty.contains("unknown group name `` in `groups`"), "{empty}");
+
+        // A group matched purely by selector is what canonical Oxfmt's own fixture authors, so an
+        // entry without `elementNamePattern` is still accepted.
+        resolve_sort_imports(&json!({
+            "customGroups": [{ "groupName": "externals", "selector": "external" }],
+            "groups": ["externals", "unknown"],
+        }))
+        .expect("a selector-only custom group");
     }
 }

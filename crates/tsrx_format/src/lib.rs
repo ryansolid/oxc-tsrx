@@ -391,14 +391,17 @@ impl RawFormatOptions {
             sort_imports: None,
         };
         // The adapter owns both of these options' shapes, so an unusable value is reported in the
-        // same wording a bad value for any other Oxfmt option gets.
+        // same wording a bad value for any other Oxfmt option gets, and named with the block it
+        // was authored in the way every other refusal here is.
         if let Some(jsdoc) = jsdoc {
-            engine.set_jsdoc(&jsdoc).map_err(|error| FormatError::Engine(error.into()))?;
+            engine
+                .set_jsdoc(&jsdoc)
+                .map_err(|error| FormatError::invalid_option_value(scope, error))?;
         }
         if let Some(sort_imports) = sort_imports {
             engine
                 .set_sort_imports(&sort_imports)
-                .map_err(|error| FormatError::Engine(error.into()))?;
+                .map_err(|error| FormatError::invalid_option_value(scope, error))?;
         }
         Ok(FileFormatOptions { engine, insert_final_newline })
     }
@@ -703,13 +706,18 @@ mod tests {
             .expect("a usable Oxfmt configuration")
     }
 
-    /// The error one authored root configuration is refused with.
-    fn root_error(config: &Value) -> String {
+    /// The error one authored options block is refused with, in the scope it was authored in.
+    fn scoped_error(config: &Value, scope: ConfigScope) -> String {
         serde_json::from_value::<RawFormatOptions>(config.clone())
             .expect("a readable Oxfmt configuration")
-            .resolve(ConfigScope::Root)
+            .resolve(scope)
             .expect_err("an unusable Oxfmt configuration")
             .to_string()
+    }
+
+    /// The error one authored root configuration is refused with.
+    fn root_error(config: &Value) -> String {
+        scoped_error(config, ConfigScope::Root)
     }
 
     #[test]
@@ -943,6 +951,28 @@ mod tests {
         // The one option still outside the pinned formatter boundary is refused exactly as before.
         let refused = root_error(&json!({ "sortTailwindcss": true }));
         assert!(refused.contains("`sortTailwindcss` is not available for TSRX"), "{refused}");
+    }
+
+    #[test]
+    fn an_unusable_sort_imports_or_jsdoc_value_names_the_block_it_was_authored_in() {
+        // The same bad value has to read differently depending on where it was written, the way
+        // every other refusal in this crate already does.
+        let sort_imports = json!({ "sortImports": { "order": "up" } });
+        let at_root = root_error(&sort_imports);
+        let in_override = scoped_error(&sort_imports, ConfigScope::Override { index: 3 });
+        assert!(at_root.contains("invalid Oxfmt sortImports"), "{at_root}");
+        assert!(at_root.contains("expected `asc` or `desc`"), "{at_root}");
+        assert!(at_root.ends_with(" in root Oxfmt config"), "{at_root}");
+        assert!(in_override.ends_with(" in Oxfmt override 3"), "{in_override}");
+        assert_ne!(at_root, in_override);
+
+        // A misspelled `jsdoc` sub-option travels the same path.
+        let jsdoc = json!({ "jsdoc": { "commentlinestrategy": "multiline" } });
+        let jsdoc_at_root = root_error(&jsdoc);
+        let jsdoc_in_override = scoped_error(&jsdoc, ConfigScope::Override { index: 0 });
+        assert!(jsdoc_at_root.contains("unknown field `commentlinestrategy`"), "{jsdoc_at_root}");
+        assert!(jsdoc_at_root.ends_with(" in root Oxfmt config"), "{jsdoc_at_root}");
+        assert!(jsdoc_in_override.ends_with(" in Oxfmt override 0"), "{jsdoc_in_override}");
     }
 
     #[test]

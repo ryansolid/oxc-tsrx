@@ -77,7 +77,8 @@ already use all apply: `printWidth`, `singleQuote`, `semi`, `tabWidth`,
 A few options are refused with a clear error before anything is written,
 because they would change `.tsrx` output in ways this project cannot yet
 guarantee: `sortTailwindcss`, embedded-language formatting, experimental
-flags, `.editorconfig`, and JS or TS config files.
+flags apart from the `experimentalSortImports` alias, `.editorconfig`,
+and JS or TS config files.
 
 ### Sorting imports and formatting JSDoc
 

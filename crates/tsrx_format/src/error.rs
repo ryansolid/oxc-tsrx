@@ -80,6 +80,12 @@ pub enum FormatError {
     EmbeddedLanguageFormattingUnavailable { scope: ConfigScope },
     /// An `experimental*` option the pinned formatter does not implement.
     ExperimentalOptions { scope: ConfigScope },
+    /// A `jsdoc` or `sortImports` value the adapter parses and rejects.
+    ///
+    /// The adapter's own wording already names the option and the value it refused; this variant
+    /// carries the block it was authored in, so the same bad value in `overrides[3]` does not read
+    /// exactly like one in the root block.
+    InvalidOptionValue { scope: ConfigScope, detail: String },
     /// An override declares no `files` patterns, so it could never match.
     OverrideWithoutFiles { index: usize },
     /// One override glob is not a valid pattern.
@@ -105,6 +111,11 @@ pub enum FormatError {
 impl FormatError {
     pub(crate) fn unreadable_config(path: &Path, error: io::Error) -> Self {
         Self::UnreadableConfig { path: path.to_path_buf(), error }
+    }
+
+    /// Keeps the adapter's wording for a refused option value and names the block it came from.
+    pub(crate) fn invalid_option_value(scope: ConfigScope, detail: impl fmt::Display) -> Self {
+        Self::InvalidOptionValue { scope, detail: detail.to_string() }
     }
 }
 
@@ -159,6 +170,9 @@ impl fmt::Display for FormatError {
                 formatter,
                 "experimental Oxfmt options are not supported by the pinned formatter in {scope}"
             ),
+            Self::InvalidOptionValue { scope, detail } => {
+                write!(formatter, "{detail} in {scope}")
+            }
             Self::OverrideWithoutFiles { index } => {
                 write!(formatter, "Oxfmt override {index} requires at least one files pattern")
             }
