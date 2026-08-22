@@ -183,6 +183,98 @@ test('a jsdoc config reflows JSDoc in .tsrx and matches canonical Oxfmt on ordin
   assert.match(rejected.stderr, /jsdoc lineWrappingStyle `wrap`/);
 });
 
+test('a sortImports config orders imports in .tsrx and matches canonical Oxfmt on ordinary TS', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'oxc-tsrx-format-sort-imports-'));
+  const configPath = join(directory, '.oxfmtrc.json');
+  const imports = [
+    'import {B} from "Beta";',
+    'import {a} from "alpha";',
+    'import {readFile} from "node:fs";',
+  ].join('\n');
+  const tsrx = `${imports}\nexport function Card() @{<p>{a}{B}{readFile}</p>}\n`;
+  const ts = `${imports}\nexport function view(){return a+B+readFile}\n`;
+  // The order canonical Oxfmt produces for that source with the default groups: the Node built-in
+  // leads its own group, then the two external packages sort together, case-insensitively.
+  const sorted = [
+    'import { readFile } from "node:fs";',
+    '',
+    'import { a } from "alpha";',
+    'import { B } from "Beta";',
+  ].join('\n');
+
+  await writeFile(configPath, '{ "sortImports": true }\n');
+  const [component, control, stock] = await Promise.all([
+    runFormat([`--config=${configPath}`, '--stdin-filepath=Card.tsrx'], tsrx),
+    runFormat([`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+    run(stockBinary, [`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+  ]);
+  assert.equal(component.code, 0, component.stderr || component.stdout);
+  assert.equal(component.stderr, '');
+  // The refusal this option used to get is gone.
+  assert.doesNotMatch(component.stderr, /not available for TSRX/i);
+  assert.ok(component.stdout.startsWith(`${sorted}\n`), component.stdout);
+  assert.match(component.stdout, /export function Card\(\) @\{\n {2}<p>/);
+  assert.equal(stock.code, 0, stock.stderr || stock.stdout);
+  assert.equal(control.stdout, stock.stdout);
+
+  const again = await runFormat(
+    [`--config=${configPath}`, '--stdin-filepath=Card.tsrx'],
+    component.stdout,
+  );
+  assert.equal(again.code, 0, again.stderr || again.stdout);
+  assert.equal(again.stdout, component.stdout);
+
+  // The object form reaches the same engine, with the sub-options it names: a case-sensitive
+  // order puts `Beta` above `alpha`, and `newlinesBetween: false` drops the blank line.
+  await writeFile(
+    configPath,
+    `${JSON.stringify({
+      sortImports: {
+        ignoreCase: false,
+        newlinesBetween: false,
+        groups: ['builtin', 'external', 'unknown'],
+      },
+    })}\n`,
+  );
+  const [object, objectControl, objectStock] = await Promise.all([
+    runFormat([`--config=${configPath}`, '--stdin-filepath=Card.tsrx'], tsrx),
+    runFormat([`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+    run(stockBinary, [`--config=${configPath}`, '--stdin-filepath=view.ts'], ts),
+  ]);
+  assert.equal(object.code, 0, object.stderr || object.stdout);
+  assert.ok(
+    object.stdout.startsWith(
+      [
+        'import { readFile } from "node:fs";',
+        'import { B } from "Beta";',
+        'import { a } from "alpha";',
+        '',
+      ].join('\n'),
+    ),
+    object.stdout,
+  );
+  assert.equal(objectControl.stdout, objectStock.stdout);
+
+  // Canonical Oxfmt's original spelling of this option reaches the same engine.
+  await writeFile(configPath, '{ "experimentalSortImports": true }\n');
+  const aliased = await runFormat(
+    [`--config=${configPath}`, '--stdin-filepath=Card.tsrx'],
+    tsrx,
+  );
+  assert.equal(aliased.code, 0, aliased.stderr || aliased.stdout);
+  assert.ok(aliased.stdout.startsWith(`${sorted}\n`), aliased.stdout);
+
+  // A group name nothing defines is still refused, in canonical Oxfmt's own wording.
+  await writeFile(configPath, '{ "sortImports": { "groups": ["nope"] } }\n');
+  const rejectedGroup = await runFormat(
+    [`--config=${configPath}`, '--stdin-filepath=Card.tsrx'],
+    tsrx,
+  );
+  assert.equal(rejectedGroup.code, 2, rejectedGroup.stderr || rejectedGroup.stdout);
+  assert.equal(rejectedGroup.stdout, '');
+  assert.match(rejectedGroup.stderr, /unknown group name `nope` in `groups`/);
+});
+
 test('ordinary JS, JSX, TS, and TSX take the canonical format path byte-for-byte', async () => {
   const cases = {
     'ordinary.js': 'export function value( ){return {answer:1}}\n',
