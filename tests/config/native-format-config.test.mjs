@@ -509,6 +509,99 @@ test("ignorePatterns leave ignored files byte-identical while formatting the res
   assert.equal(await readFile(ignored, "utf8"), source);
 });
 
+test("a discovered jsdoc config formats .tsrx files, and one override turns it back off", async () => {
+  // Overrides match the path an authored file has under the config root, so this directory is
+  // resolved through its real path the way every other override test here does.
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), "oxc-tsrx-format-jsdoc-")));
+  await mkdir(join(cwd, "legacy"), { recursive: true });
+  const authored =
+    '/**    counts   things   */\nexport function View() @{const value="hello";<p>{value}</p>}\n';
+  const documented = join(cwd, "View.tsrx");
+  const legacy = join(cwd, "legacy", "View.tsrx");
+  await writeFile(
+    join(cwd, ".oxfmtrc.json"),
+    `${JSON.stringify(
+      {
+        semi: false,
+        jsdoc: true,
+        overrides: [{ files: ["legacy/**"], options: { jsdoc: false } }],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await writeFile(documented, authored);
+  await writeFile(legacy, authored);
+
+  // Before this option was implemented the same config exited 2 without writing anything.
+  const result = await runFormat(cwd, ["--write", documented, legacy]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  assert.doesNotMatch(result.stderr, /not available for TSRX/i);
+
+  const formatted = await readFile(documented, "utf8");
+  assert.match(formatted, /^\/\*\* Counts things \*\//);
+  assert.match(formatted, /const value = "hello"\n/);
+
+  // The override matched, so this file was formatted with JSDoc formatting off.
+  const overridden = await readFile(legacy, "utf8");
+  assert.match(overridden, /^\/\*\*    counts   things   \*\//);
+  assert.match(overridden, /const value = "hello"\n/);
+
+  const check = await runFormat(cwd, ["--check", documented, legacy]);
+  assert.equal(check.code, 0, check.stderr || check.stdout);
+});
+
+test("one discovered sortImports policy covers a mixed .ts and .tsrx batch, and an override lifts it", async () => {
+  // Overrides match the path an authored file has under the config root, so this directory is
+  // resolved through its real path the way every other override test here does.
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), "oxc-tsrx-format-sort-imports-")));
+  await mkdir(join(cwd, "legacy"), { recursive: true });
+  const imports = ['import {z} from "zebra";', 'import {a} from "apple";'].join("\n");
+  const authoredTsrx = `${imports}\nexport function View() @{<p>{a}{z}</p>}\n`;
+  const authoredTs = `${imports}\nexport function view(){return a+z}\n`;
+  const sorted = ['import { a } from "apple";', 'import { z } from "zebra";'].join("\n");
+  const component = join(cwd, "View.tsrx");
+  const ordinary = join(cwd, "view.ts");
+  const legacy = join(cwd, "legacy", "View.tsrx");
+  await writeFile(
+    join(cwd, ".oxfmtrc.json"),
+    `${JSON.stringify(
+      {
+        sortImports: true,
+        overrides: [{ files: ["legacy/**"], options: { sortImports: false } }],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await writeFile(component, authoredTsrx);
+  await writeFile(ordinary, authoredTs);
+  await writeFile(legacy, authoredTsrx);
+
+  // Before this option was implemented the same config exited 2 without writing anything, so a
+  // project that sorted its imports could not have a single .tsrx file in it.
+  const result = await runFormat(cwd, ["--write", component, ordinary, legacy]);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  assert.doesNotMatch(result.stderr, /not available for TSRX/i);
+
+  const formatted = await readFile(component, "utf8");
+  assert.ok(formatted.startsWith(`${sorted}\n`), formatted);
+  assert.match(formatted, /export function View\(\) @\{/);
+
+  // The ordinary TypeScript file in the same batch took the canonical lane, so stock Oxfmt run
+  // over the authored bytes with the same config is the oracle for what it now holds.
+  const stockOrdinary = await run(stock, cwd, ["--stdin-filepath=view.ts"], authoredTs);
+  assert.equal(stockOrdinary.code, 0, stockOrdinary.stderr || stockOrdinary.stdout);
+  assert.equal(await readFile(ordinary, "utf8"), stockOrdinary.stdout);
+
+  // The override matched, so this file was formatted with import sorting off.
+  const overridden = await readFile(legacy, "utf8");
+  assert.ok(overridden.startsWith('import { z } from "zebra";\n'), overridden);
+
+  const check = await runFormat(cwd, ["--check", component, ordinary, legacy]);
+  assert.equal(check.code, 0, check.stderr || check.stdout);
+});
+
 test("unsupported callback-backed options, editorconfig, and JS config modules fail before output or writes", async () => {
   const cases = [
     {

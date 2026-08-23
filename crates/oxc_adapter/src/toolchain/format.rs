@@ -1,14 +1,17 @@
 //! The canonical Oxfmt formatting lane and the project-owned options it is driven by.
 
-use std::{error::Error, fmt, str::FromStr, time::Instant};
+use std::{collections::HashSet, error::Error, fmt, str::FromStr, time::Instant};
 
 use oxc_allocator::Allocator;
 use oxc_formatter::{
-    ArrowParentheses, AttributePosition, BracketSameLine, BracketSpacing,
-    EmbeddedLanguageFormatting, Expand, JsFormatOptions, QuoteProperties, QuoteStyle, Semicolons,
-    TrailingCommas, format_program, parse_for_format,
+    ArrowParentheses, AttributePosition, BracketSameLine, BracketSpacing, CommentLineStrategy,
+    CustomGroupDefinition, EmbeddedLanguageFormatting, Expand, GroupEntry, ImportModifier,
+    ImportSelector, JsFormatOptions, JsdocOptions, LineWrappingStyle, QuoteProperties, QuoteStyle,
+    Semicolons, SortImportsOptions, SortOrder, TrailingCommas, format_program, parse_for_format,
 };
 use oxc_formatter_core::{IndentStyle, IndentWidth, LineEnding, LineWidth};
+use serde::Deserialize;
+use serde_json::Value;
 
 use super::timings::{FormatEngineTimings, elapsed_ns};
 use crate::{DynamicTagContract, DynamicTagError, SourceKind, validate_dynamic_tags};
@@ -135,6 +138,200 @@ pub struct FormatOptions {
     pub single_attribute_per_line: Option<bool>,
     pub embedded_language_formatting: Option<String>,
     pub html_whitespace_sensitivity: Option<String>,
+    /// Oxfmt's `jsdoc` option, parsed by [`FormatOptions::set_jsdoc`].
+    pub jsdoc: Option<JsdocSetting>,
+    /// Oxfmt's `sortImports` option, parsed by [`FormatOptions::set_sort_imports`].
+    pub sort_imports: Option<SortImportsSetting>,
+}
+
+/// Whether one configuration scope turns `jsdoc` comment formatting on, and with which
+/// sub-options.
+///
+/// Canonical Oxfmt spells this option `true`, `false`, or an object. The disabled form stays a
+/// value rather than an absent option so one `overrides` entry can turn the option back off for
+/// the files it matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum JsdocSetting {
+    Disabled,
+    Enabled(JsdocConfig),
+}
+
+/// The sub-options canonical Oxfmt reads out of a `jsdoc` object.
+///
+/// Every field stays `None` when the author did not write it, so the pinned formatter's own
+/// defaults decide. The two string fields are validated where every other named option is, in
+/// [`js_format_options`], and unknown fields are refused rather than silently ignored.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct JsdocConfig {
+    pub capitalize_descriptions: Option<bool>,
+    pub description_with_dot: Option<bool>,
+    pub add_default_to_description: Option<bool>,
+    pub prefer_code_fences: Option<bool>,
+    pub line_wrapping_style: Option<String>,
+    pub comment_line_strategy: Option<String>,
+    pub separate_tag_groups: Option<bool>,
+    pub separate_returns_from_param: Option<bool>,
+    pub bracket_spacing: Option<bool>,
+    pub description_tag: Option<bool>,
+    pub keep_unparsable_example_indent: Option<bool>,
+}
+
+/// Whether one configuration scope turns import sorting on, and with which sub-options.
+///
+/// Canonical Oxfmt spells this option `true`, `false`, or an object, under either `sortImports` or
+/// its `experimentalSortImports` alias. The disabled form stays a value rather than an absent
+/// option so one `overrides` entry can turn sorting back off for the files it matches.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SortImportsSetting {
+    Disabled,
+    Enabled(SortImportsConfig),
+}
+
+/// The sub-options canonical Oxfmt reads out of a `sortImports` object.
+///
+/// Every field stays `None` when the author did not write it, so the pinned formatter's own
+/// defaults decide. Names inside `groups` and `customGroups` are parsed and cross-checked where
+/// every other named option is, in [`js_format_options`], and unknown fields are refused rather
+/// than silently ignored.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SortImportsConfig {
+    pub partition_by_newline: Option<bool>,
+    pub partition_by_comment: Option<bool>,
+    pub sort_side_effects: Option<bool>,
+    pub order: Option<SortImportsOrder>,
+    pub ignore_case: Option<bool>,
+    pub newlines_between: Option<bool>,
+    pub internal_pattern: Option<Vec<String>>,
+    pub groups: Option<Vec<SortImportsGroup>>,
+    pub custom_groups: Option<Vec<SortImportsCustomGroup>>,
+}
+
+/// Whether imports sort A-Z or Z-A, spelled the way canonical Oxfmt spells it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortImportsOrder {
+    Asc,
+    Desc,
+}
+
+/// One entry of the `groups` list.
+///
+/// Canonical Oxfmt accepts a single group name, an array of names sorted as one group, or a
+/// `{ "newlinesBetween": bool }` marker that overrides the blank line at one group boundary.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum SortImportsGroup {
+    NewlinesBetween(NewlinesBetweenMarker),
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl SortImportsGroup {
+    /// The group names this entry contributes, which is nothing for a boundary marker.
+    fn names(&self) -> &[String] {
+        match self {
+            Self::Single(name) => std::slice::from_ref(name),
+            Self::Multiple(names) => names,
+            Self::NewlinesBetween(_) => &[],
+        }
+    }
+}
+
+/// The `{ "newlinesBetween": bool }` marker one `groups` entry can be.
+///
+/// A misspelled key is refused rather than read as a group name, so a typo cannot silently turn
+/// into an undefined custom group.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NewlinesBetweenMarker {
+    pub newlines_between: bool,
+}
+
+/// One `customGroups` entry: a name usable in `groups`, plus what it matches.
+///
+/// `groupName` is required. A container-level `default` would let an entry omit it, read the
+/// entry as the empty name, and then let a `groups` entry of `""` resolve against it, so a typo
+/// would define a group instead of being refused.
+///
+/// `elementNamePattern` stays optional because canonical Oxfmt reads an empty pattern list as
+/// "matches every import", which is how a group selected purely by `selector` or `modifiers` is
+/// written; its own `custom_groups_selector_modifiers` fixture authors one that way.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SortImportsCustomGroup {
+    pub group_name: String,
+    #[serde(default)]
+    pub element_name_pattern: Vec<String>,
+    #[serde(default)]
+    pub selector: Option<String>,
+    #[serde(default)]
+    pub modifiers: Option<Vec<String>>,
+}
+
+impl FormatOptions {
+    /// Reads Oxfmt's `sortImports` option out of one JSON configuration value.
+    ///
+    /// Callers hand over the raw JSON for the same reason [`FormatOptions::set_jsdoc`] does: the
+    /// parsed shape is this adapter's own, so the `true | false | object` form canonical Oxfmt
+    /// documents stays in the one module allowed to know how the pinned formatter spells it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FormatOptionError`] when the value is neither a boolean nor an object of the
+    /// sub-options canonical Oxfmt accepts.
+    pub fn set_sort_imports(&mut self, value: &Value) -> Result<(), FormatOptionError> {
+        let setting = match value {
+            Value::Bool(false) => SortImportsSetting::Disabled,
+            Value::Bool(true) => SortImportsSetting::Enabled(SortImportsConfig::default()),
+            Value::Object(_) => {
+                SortImportsSetting::Enabled(serde_json::from_value(value.clone()).map_err(
+                    |error| FormatOptionError::named("sortImports", &value.to_string(), error),
+                )?)
+            }
+            other => {
+                return Err(FormatOptionError::named(
+                    "sortImports",
+                    &other.to_string(),
+                    "expected `true`, `false`, or an object of import-sorting options",
+                ));
+            }
+        };
+        self.sort_imports = Some(setting);
+        Ok(())
+    }
+
+    /// Reads Oxfmt's `jsdoc` option out of one JSON configuration value.
+    ///
+    /// Callers hand over the raw JSON because the parsed shape is this adapter's own, which keeps
+    /// the `true | false | object` form canonical Oxfmt documents in the one module allowed to
+    /// know how the pinned formatter spells it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FormatOptionError`] when the value is neither a boolean nor an object of the
+    /// sub-options canonical Oxfmt accepts.
+    pub fn set_jsdoc(&mut self, value: &Value) -> Result<(), FormatOptionError> {
+        let setting = match value {
+            Value::Bool(false) => JsdocSetting::Disabled,
+            Value::Bool(true) => JsdocSetting::Enabled(JsdocConfig::default()),
+            Value::Object(_) => {
+                JsdocSetting::Enabled(serde_json::from_value(value.clone()).map_err(|error| {
+                    FormatOptionError::named("jsdoc", &value.to_string(), error)
+                })?)
+            }
+            other => {
+                return Err(FormatOptionError::named(
+                    "jsdoc",
+                    &other.to_string(),
+                    "expected `true`, `false`, or an object of JSDoc options",
+                ));
+            }
+        };
+        self.jsdoc = Some(setting);
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -261,12 +458,244 @@ fn js_format_options(options: &FormatOptions) -> Result<JsFormatOptions, FormatO
             _ => return Err(FormatOptionError::unrecognized("htmlWhitespaceSensitivity", value)),
         };
     }
+    if let Some(setting) = &options.jsdoc {
+        resolved.jsdoc = jsdoc_options(setting)?;
+    }
+    if let Some(setting) = &options.sort_imports {
+        resolved.sort_imports = sort_imports_options(setting)?;
+    }
     Ok(resolved)
+}
+
+/// One unusable `sortImports` value, reported in canonical Oxfmt's own wording.
+///
+/// Canonical prefixes each of these sentences with ``Invalid `sortImports` configuration:``; this
+/// error type already names the option, so only the sentence itself is carried.
+fn sort_imports_error(value: &str, detail: impl fmt::Display) -> FormatOptionError {
+    FormatOptionError::named("sortImports", value, detail)
+}
+
+/// Maps the project-owned `sortImports` option onto the pinned formatter's own options.
+///
+/// `customGroups` is resolved before `groups`, because a `groups` entry that names none of the
+/// predefined groups is only legal when a custom group defines that name.
+fn sort_imports_options(
+    setting: &SortImportsSetting,
+) -> Result<Option<SortImportsOptions>, FormatOptionError> {
+    let SortImportsSetting::Enabled(config) = setting else {
+        return Ok(None);
+    };
+    let mut resolved = SortImportsOptions::default();
+    if let Some(value) = config.partition_by_newline {
+        resolved.partition_by_newline = value;
+    }
+    if let Some(value) = config.partition_by_comment {
+        resolved.partition_by_comment = value;
+    }
+    if let Some(value) = config.sort_side_effects {
+        resolved.sort_side_effects = value;
+    }
+    if let Some(value) = config.order {
+        resolved.order = match value {
+            SortImportsOrder::Asc => SortOrder::Asc,
+            SortImportsOrder::Desc => SortOrder::Desc,
+        };
+    }
+    if let Some(value) = config.ignore_case {
+        resolved.ignore_case = value;
+    }
+    if let Some(value) = config.newlines_between {
+        resolved.newlines_between = value;
+    }
+    if let Some(value) = &config.internal_pattern {
+        resolved.internal_pattern.clone_from(value);
+    }
+    if let Some(groups) = &config.custom_groups {
+        resolved.custom_groups = custom_group_definitions(groups)?;
+    }
+    if let Some(entries) = &config.groups {
+        let (groups, overrides) = group_entries(entries, &resolved.custom_groups)?;
+        resolved.groups = groups;
+        resolved.newline_boundary_overrides = overrides;
+    }
+    resolved.validate().map_err(|error| sort_imports_error("options", error))?;
+    Ok(Some(resolved))
+}
+
+/// Parses every `customGroups` entry's selector and modifiers into the pinned formatter's own.
+fn custom_group_definitions(
+    groups: &[SortImportsCustomGroup],
+) -> Result<Vec<CustomGroupDefinition>, FormatOptionError> {
+    let mut resolved = Vec::with_capacity(groups.len());
+    for group in groups {
+        let name = group.group_name.as_str();
+        let selector = match group.selector.as_deref() {
+            Some(selector) => Some(ImportSelector::parse(selector).ok_or_else(|| {
+                sort_imports_error(
+                    selector,
+                    format!("unknown selector: `{selector}` in customGroups: `{name}`"),
+                )
+            })?),
+            None => None,
+        };
+        let raw_modifiers = group.modifiers.as_deref().unwrap_or_default();
+        let mut modifiers = Vec::with_capacity(raw_modifiers.len());
+        for modifier in raw_modifiers {
+            modifiers.push(ImportModifier::parse(modifier).ok_or_else(|| {
+                sort_imports_error(
+                    modifier,
+                    format!("unknown modifier: `{modifier}` in customGroups: `{name}`"),
+                )
+            })?);
+        }
+        resolved.push(CustomGroupDefinition {
+            group_name: group.group_name.clone(),
+            element_name_pattern: group.element_name_pattern.clone(),
+            selector,
+            modifiers,
+        });
+    }
+    Ok(resolved)
+}
+
+/// The pinned formatter's `groups` list paired with its per-boundary `newlinesBetween` overrides.
+///
+/// `overrides[i]` covers the boundary between `groups[i]` and `groups[i + 1]`, and `None` there
+/// means the global `newlinesBetween` decides.
+type ResolvedGroups = (Vec<Vec<GroupEntry>>, Vec<Option<bool>>);
+
+/// Splits the authored `groups` list into the pinned formatter's groups and its per-boundary
+/// `newlinesBetween` overrides.
+///
+/// A marker sits *between* two groups, so one at either end of the list, or two in a row, names a
+/// boundary that does not exist and is refused the way canonical Oxfmt refuses it.
+fn group_entries(
+    entries: &[SortImportsGroup],
+    custom_groups: &[CustomGroupDefinition],
+) -> Result<ResolvedGroups, FormatOptionError> {
+    let defined: HashSet<&str> =
+        custom_groups.iter().map(|group| group.group_name.as_str()).collect();
+    let mut groups: Vec<Vec<GroupEntry>> = Vec::new();
+    let mut boundary_overrides: Vec<Option<bool>> = Vec::new();
+    let mut pending: Option<bool> = None;
+    for entry in entries {
+        if let SortImportsGroup::NewlinesBetween(marker) = entry {
+            if groups.is_empty() {
+                return Err(sort_imports_error(
+                    "groups",
+                    "`{ \"newlinesBetween\" }` marker cannot appear at the start of `groups`",
+                ));
+            }
+            if pending.is_some() {
+                return Err(sort_imports_error(
+                    "groups",
+                    "consecutive `{ \"newlinesBetween\" }` markers are not allowed in `groups`",
+                ));
+            }
+            pending = Some(marker.newlines_between);
+            continue;
+        }
+        if !groups.is_empty() {
+            boundary_overrides.push(pending.take());
+        }
+        let mut parsed = Vec::new();
+        for name in entry.names() {
+            let group = GroupEntry::parse(name);
+            if let GroupEntry::Custom(custom) = &group
+                && !defined.contains(custom.as_str())
+            {
+                return Err(sort_imports_error(
+                    name,
+                    format!("unknown group name `{name}` in `groups`"),
+                ));
+            }
+            parsed.push(group);
+        }
+        groups.push(parsed);
+    }
+    if pending.is_some() {
+        return Err(sort_imports_error(
+            "groups",
+            "`{ \"newlinesBetween\" }` marker cannot appear at the end of `groups`",
+        ));
+    }
+    Ok((groups, boundary_overrides))
+}
+
+/// Maps the project-owned `jsdoc` option onto the pinned formatter's own options.
+///
+/// The two string sub-options quote canonical Oxfmt's wording for an invalid value, the way every
+/// other named option here does.
+fn jsdoc_options(setting: &JsdocSetting) -> Result<Option<JsdocOptions>, FormatOptionError> {
+    let JsdocSetting::Enabled(config) = setting else {
+        return Ok(None);
+    };
+    let mut resolved = JsdocOptions::default();
+    if let Some(value) = config.capitalize_descriptions {
+        resolved.capitalize_descriptions = value;
+    }
+    if let Some(value) = config.description_with_dot {
+        resolved.description_with_dot = value;
+    }
+    if let Some(value) = config.add_default_to_description {
+        resolved.add_default_to_description = value;
+    }
+    if let Some(value) = config.prefer_code_fences {
+        resolved.prefer_code_fences = value;
+    }
+    if let Some(value) = &config.line_wrapping_style {
+        resolved.line_wrapping_style = match value.as_str() {
+            "greedy" => LineWrappingStyle::Greedy,
+            "balance" => LineWrappingStyle::Balance,
+            _ => {
+                return Err(FormatOptionError::named(
+                    "jsdoc lineWrappingStyle",
+                    value,
+                    "Expected \"greedy\" or \"balance\".",
+                ));
+            }
+        };
+    }
+    if let Some(value) = &config.comment_line_strategy {
+        resolved.comment_line_strategy = match value.as_str() {
+            "singleLine" => CommentLineStrategy::SingleLine,
+            "multiline" => CommentLineStrategy::Multiline,
+            "keep" => CommentLineStrategy::Keep,
+            _ => {
+                return Err(FormatOptionError::named(
+                    "jsdoc commentLineStrategy",
+                    value,
+                    "Expected \"singleLine\", \"multiline\", or \"keep\".",
+                ));
+            }
+        };
+    }
+    if let Some(value) = config.separate_tag_groups {
+        resolved.separate_tag_groups = value;
+    }
+    if let Some(value) = config.separate_returns_from_param {
+        resolved.separate_returns_from_param = value;
+    }
+    if let Some(value) = config.bracket_spacing {
+        resolved.bracket_spacing = value;
+    }
+    if let Some(value) = config.description_tag {
+        resolved.description_tag = value;
+    }
+    if let Some(value) = config.keep_unparsable_example_indent {
+        resolved.keep_unparsable_example_indent = value;
+    }
+    Ok(Some(resolved))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DynamicTagContract, FormatError, FormatRequest, SourceKind, format};
+    use serde_json::json;
+
+    use super::{
+        DynamicTagContract, FormatError, FormatOptions, FormatRequest, SourceKind, Value, format,
+        sort_imports_options,
+    };
 
     fn format_dynamic(expression: &str) -> Result<String, FormatError> {
         let source = format!("const value = <_t0_D0 _t0_A0_={{{expression}}} _t0_Z0_={{null}} />;");
@@ -327,5 +756,42 @@ mod tests {
             assert!(error.contains("dynamic tag"), "{expression}: {error}");
             assert!(error.contains("source byte 0"), "{expression}: {error}");
         }
+    }
+
+    /// One authored `sortImports` value taken all the way to the pinned formatter's own options,
+    /// which is where a `groups` entry is checked against the custom groups that define it.
+    fn resolve_sort_imports(value: &Value) -> Result<(), String> {
+        let mut options = FormatOptions::default();
+        options.set_sort_imports(value).map_err(|error| error.to_string())?;
+        let setting = options.sort_imports.as_ref().expect("a sortImports setting");
+        sort_imports_options(setting).map(|_| ()).map_err(|error| error.to_string())
+    }
+
+    #[test]
+    fn a_custom_group_without_a_group_name_is_refused() {
+        // Omitting `groupName` names no group at all, so it is refused by name rather than read
+        // as the empty name.
+        let missing = resolve_sort_imports(&json!({
+            "customGroups": [{ "elementNamePattern": ["~/stores/*"] }],
+            "groups": ["stores", "unknown"],
+        }))
+        .unwrap_err();
+        assert!(missing.contains("missing field `groupName`"), "{missing}");
+
+        // With that entry refused, the empty name it used to define resolves in no `groups` list.
+        let empty = resolve_sort_imports(&json!({
+            "customGroups": [{ "groupName": "stores", "elementNamePattern": ["~/stores/*"] }],
+            "groups": ["", "unknown"],
+        }))
+        .unwrap_err();
+        assert!(empty.contains("unknown group name `` in `groups`"), "{empty}");
+
+        // A group matched purely by selector is what canonical Oxfmt's own fixture authors, so an
+        // entry without `elementNamePattern` is still accepted.
+        resolve_sort_imports(&json!({
+            "customGroups": [{ "groupName": "externals", "selector": "external" }],
+            "groups": ["externals", "unknown"],
+        }))
+        .expect("a selector-only custom group");
     }
 }
