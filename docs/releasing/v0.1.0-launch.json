@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "version": "0.1.0",
-  "repository": "https://github.com/tsrx-org/oxc",
+  "repository": "https://github.com/markless-dev/oxc-tsrx",
   "site": {
     "url": "https://oxc-tsrx.dev/",
     "artifact": "docs/dist",
