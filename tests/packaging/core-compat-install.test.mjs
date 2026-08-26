@@ -84,7 +84,7 @@ async function inventory(directory) {
   return files.sort();
 }
 
-test("the packed oxc-tsrx compatibility subpath works from an outside consumer", async (context) => {
+test("the packed @tsrx/oxc compatibility subpath works from an outside consumer", async (context) => {
   const artifacts = await mkdtemp(join(tmpdir(), "oxc-tsrx-core-compat-artifacts-"));
   const consumer = await mkdtemp(join(tmpdir(), "oxc-tsrx-core-compat-consumer-"));
   const cache = join(artifacts, ".npm-cache");
@@ -135,7 +135,7 @@ test("the packed oxc-tsrx compatibility subpath works from an outside consumer",
         name: "core-compat-outside-consumer",
         private: true,
         type: "module",
-        dependencies: { "oxc-tsrx": toolchainPackage.manifest.version },
+        dependencies: { "@tsrx/oxc": toolchainPackage.manifest.version },
       },
       null,
       2,
@@ -159,7 +159,7 @@ test("the packed oxc-tsrx compatibility subpath works from an outside consumer",
   isEventAttribute,
   normalizeEventName,
   parseModule,
-} from "oxc-tsrx/tsrx-core-compat";
+} from "@tsrx/oxc/tsrx-core-compat";
 
 const program = parseModule("export const answer = 42", "consumer.ts");
 console.log(JSON.stringify({
@@ -183,9 +183,9 @@ console.log(JSON.stringify({
 
   await writeFile(
     join(consumer, "type-contract.ts"),
-    `import { parseModule } from "oxc-tsrx/tsrx-core-compat";
-import type { ParseOptions, VolarMappingsResult } from "oxc-tsrx/tsrx-core-compat/types";
-import type * as AST from "oxc-tsrx/tsrx-core-compat/types/estree";
+    `import { parseModule } from "@tsrx/oxc/tsrx-core-compat";
+import type { ParseOptions, VolarMappingsResult } from "@tsrx/oxc/tsrx-core-compat/types";
+import type * as AST from "@tsrx/oxc/tsrx-core-compat/types/estree";
 
 const options: ParseOptions = { collect: true, errors: [] };
 const program: AST.Program = parseModule("export {}", "consumer.ts", options);
@@ -218,7 +218,7 @@ void result;
     { cwd: consumer, env: environment },
   );
 
-  const installedRoot = join(consumer, "node_modules/oxc-tsrx");
+  const installedRoot = join(consumer, "node_modules/@tsrx/oxc");
   const installedManifest = JSON.parse(await readFile(join(installedRoot, "package.json"), "utf8"));
   assert.ok(installedManifest.exports["./tsrx-core-compat"]);
   assert.ok(installedManifest.exports["./tsrx-core-compat/types"]);

@@ -143,12 +143,12 @@ async function makeProject() {
   const source = await readFile(adapter, "utf8");
   const swapped = source.replace(
     '"../../packages/toolchain/dist/parser.js"',
-    '"oxc-tsrx/parser"',
+    '"@tsrx/oxc/parser"',
   );
   assert.notEqual(swapped, source, "the adapter's relative parser import moved");
   await writeFile(adapter, swapped);
   await mkdir(join(project, "node_modules"), { recursive: true });
-  await symlink(toolchain, join(project, "node_modules/oxc-tsrx"), "dir");
+  await symlink(toolchain, join(project, "node_modules/@tsrx/oxc"), "dir");
   return project;
 }
 
@@ -428,13 +428,13 @@ async function makeWalkthroughProject() {
   await writeFile(
     join(project, "package.json"),
     `${JSON.stringify(
-      { name: "my-app", private: true, type: "module", devDependencies: { "oxc-tsrx": "0.6.0" } },
+      { name: "my-app", private: true, type: "module", devDependencies: { "@tsrx/oxc": "0.6.0" } },
       null,
       2,
     )}\n`,
   );
   await mkdir(join(project, "node_modules"), { recursive: true });
-  await symlink(toolchain, join(project, "node_modules/oxc-tsrx"), "dir");
+  await symlink(toolchain, join(project, "node_modules/@tsrx/oxc"), "dir");
   return project;
 }
 

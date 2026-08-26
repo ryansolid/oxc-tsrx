@@ -541,7 +541,7 @@ test("release verification rejects eight target names backed by one substituted 
           version: fixture.expected.version,
           target: platform.target,
           vscodeTarget: platform.vscodeTarget,
-          filename: `oxc-tsrx-native-${platform.packageSuffix}-${fixture.expected.version}.tgz`,
+          filename: `tsrx-oxc-${platform.packageSuffix}-${fixture.expected.version}.tgz`,
           lspSha256: fixture.expected.nativeLspSha256,
           lspBytes: fixture.expected.nativeLspBytes,
         })}\n`,

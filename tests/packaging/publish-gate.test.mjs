@@ -25,7 +25,7 @@ import { temporaryDirectory } from "./temporary-directory.mjs";
  *   - a platform package that is internally consistent about having no parser
  *     addon, which is what 0.1.0 actually published. Eight packages declared no
  *     addon, listed none in `files`, contained none, and every
- *     `oxc-tsrx/parser` import failed on every platform. A gate that only reads
+ *     `@tsrx/oxc/parser` import failed on every platform. A gate that only reads
  *     the `files` array cannot see that one, so the gate also holds platform
  *     packages to what they must contain.
  */
@@ -211,7 +211,7 @@ test("the gate rejects the package 0.1.0 actually published, which promised no a
     result.stdout,
     /the files array does not list "parser\.node", so npm would leave it out of the tarball/u,
   );
-  assert.match(result.stdout, /declares no parser addon; every oxc-tsrx\/parser import on/u);
+  assert.match(result.stdout, /declares no parser addon; every @tsrx\/oxc\/parser import on/u);
   assert.match(result.stdout, /oxcTsrx\.schemaVersion is 1, expected 2/u);
   assert.match(result.stdout, /gate: FAIL/u);
 });
@@ -260,7 +260,7 @@ test("the gate rejects an artifact set that is missing a platform package", asyn
     "--require-full-matrix",
   ]);
   assert.equal(result.status, 1, result.stdout);
-  assert.match(result.stdout, /the artifact set is missing oxc-tsrx@3\.2\.1/u);
-  const others = [...new Set([...result.stdout.matchAll(/missing (@oxc-tsrx\/native-[\w-]+)@/gu)].map((match) => match[1]))];
+  assert.match(result.stdout, /the artifact set is missing @tsrx\/oxc@3\.2\.1/u);
+  const others = [...new Set([...result.stdout.matchAll(/missing (@tsrx\/oxc-[\w-]+)@/gu)].map((match) => match[1]))];
   assert.equal(others.length, 7, `expected the seven other platform packages to be named, got ${others.join(", ")}`);
 });

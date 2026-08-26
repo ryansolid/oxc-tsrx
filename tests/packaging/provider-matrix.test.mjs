@@ -2,7 +2,7 @@
  * The package-manager matrix for install-only provider discovery.
  *
  * Every lane answers the same question with the same evidence: a consumer whose
- * only dependency is `oxc-tsrx`, installed from a local registry serving the
+ * only dependency is `@tsrx/oxc`, installed from a local registry serving the
  * real `npm pack` tarball, runs **no command other than its package manager's
  * install** and still yields the same provider index; then a frozen reinstall
  * from the unchanged manifest and lockfile — after the whole install tree is
@@ -144,7 +144,7 @@ function fingerprint(target) {
 
   let installedResolver;
   try {
-    installedResolver = resolveRequest("oxc-tsrx/provider-resolve", manifest);
+    installedResolver = resolveRequest("@tsrx/oxc/provider-resolve", manifest);
   } catch (error) {
     installedResolver = "unresolvable:" + String(error.code || error.message);
   }
@@ -539,7 +539,7 @@ test(
         ["tsgolint", "oxlint-tsgolint", "0.24.0"],
         ["pathe", "pathe", "2.0.3"],
         ["tinyglobby", "tinyglobby", "0.2.17"],
-        // The eight-platform split is declared by `oxc-tsrx` itself. Yarn
+        // The eight-platform split is declared by `@tsrx/oxc` itself. Yarn
         // resolves optional dependencies for every platform, not just this
         // host's, so all eight names have to exist in the lane's registry.
         ...NATIVE_TARGETS.map((platform) => [
@@ -578,7 +578,7 @@ test(
       const directory = join(temporary, name);
       await writePackage(
         directory,
-        { name, private: true, type: "module", ...manifest, dependencies: { "oxc-tsrx": "0.6.0" } },
+        { name, private: true, type: "module", ...manifest, dependencies: { "@tsrx/oxc": "0.6.0" } },
         files,
       );
       consumers.add(directory);
@@ -596,7 +596,7 @@ test(
         folder,
         lane.plugAndPlay
           ? repositoryResolver
-          : join(folder, "node_modules/oxc-tsrx/dist/provider-resolve.js"),
+          : join(folder, "node_modules/@tsrx/oxc/dist/provider-resolve.js"),
         providerClient,
         outFile,
         JSON.stringify(DOCUMENTS),
@@ -647,7 +647,7 @@ test(
       );
       assert.deepEqual(
         report.providers.map(({ name, id, protocol }) => ({ name, id, protocol })),
-        [{ name: "oxc-tsrx", id: "tsrx", protocol: 1 }],
+        [{ name: "@tsrx/oxc", id: "tsrx", protocol: 1 }],
         lane.id,
       );
 
@@ -827,7 +827,7 @@ test(
         assert.equal(result.report.plugAndPlay, true, "the host ran under a PnP runtime");
         assert.match(
           result.report.providers[0].root,
-          /\.yarn[/\\]cache[/\\][^/\\]+\.zip[/\\]node_modules[/\\]oxc-tsrx$/u,
+          /\.yarn[/\\]cache[/\\][^/\\]+\.zip[/\\]node_modules[/\\]@tsrx[/\\]oxc$/u,
           "the provider is only reachable through the PnP map",
         );
       },
@@ -866,7 +866,7 @@ test(
         // location of the provider inside the zip cache.
         assert.match(
           report.installedResolver,
-          /\.zip[/\\]node_modules[/\\]oxc-tsrx[/\\]dist[/\\]provider-resolve\.js$/u,
+          /\.zip[/\\]node_modules[/\\]@tsrx[/\\]oxc[/\\]dist[/\\]provider-resolve\.js$/u,
         );
         // Reading it is not. An unpatched `fs` cannot see inside the archive:
         // POSIX reports ENOTDIR for a path that walks through a regular file,
@@ -891,10 +891,10 @@ test(
           assert.equal(entry.code, "unreadable-manifest", JSON.stringify(entry));
         }
         const named = report.diagnostics.filter((entry) =>
-          (entry.packages ?? []).includes("oxc-tsrx"),
+          (entry.packages ?? []).includes("@tsrx/oxc"),
         );
         assert.equal(named.length > 0, true, "the diagnostic must name the package");
-        assert.match(named[0].manifest, /\.zip[/\\]node_modules[/\\]oxc-tsrx[/\\]package\.json$/u);
+        assert.match(named[0].manifest, /\.zip[/\\]node_modules[/\\]@tsrx[/\\]oxc[/\\]package\.json$/u);
         assert.match(named[0].message, /oxc-tsrx/u);
         assert.match(named[0].message, UNREADABLE_ARCHIVE_MESSAGE);
 
@@ -946,7 +946,7 @@ test(
         ["tsgolint", "oxlint-tsgolint", "0.24.0"],
         ["pathe", "pathe", "2.0.3"],
         ["tinyglobby", "tinyglobby", "0.2.17"],
-        // The eight-platform split is declared by `oxc-tsrx` itself. Yarn
+        // The eight-platform split is declared by `@tsrx/oxc` itself. Yarn
         // resolves optional dependencies for every platform, not just this
         // host's, so all eight names have to exist in the lane's registry.
         ...NATIVE_TARGETS.map((platform) => [
@@ -991,7 +991,7 @@ test(
     const app = join(temporary, "mixed-consumer");
     await writePackage(
       app,
-      { name: "mixed-consumer", private: true, type: "module", dependencies: { "oxc-tsrx": "0.6.0" } },
+      { name: "mixed-consumer", private: true, type: "module", dependencies: { "@tsrx/oxc": "0.6.0" } },
       files,
     );
 
@@ -1008,7 +1008,7 @@ test(
       [
         harness,
         folder,
-        join(folder, "node_modules/oxc-tsrx/dist/provider-resolve.js"),
+        join(folder, "node_modules/@tsrx/oxc/dist/provider-resolve.js"),
         providerClient,
         outFile,
         JSON.stringify(DOCUMENTS),
@@ -1040,7 +1040,7 @@ test(
       assert.equal(entry.client, "tsrx", document);
       assert.equal(
         entry.lint,
-        join(folder, "node_modules/oxc-tsrx/bin/oxc-tsrx-lint"),
+        join(folder, "node_modules/@tsrx/oxc/bin/oxc-tsrx-lint"),
         document,
       );
     }

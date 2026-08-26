@@ -168,13 +168,13 @@ test("format package reports a missing native artifact instead of silently deleg
 // Vite+ resolves the *package* `oxlint` and then derives `<pkgRoot>/bin/oxlint`
 // from its manifest, so whichever package answers to those command names has to
 // carry a resolvable root and a declared bin for each. That used to be two
-// packages, `oxlint-tsrx` and `oxfmt-tsrx`; both were folded into `oxc-tsrx`, so
+// packages, `oxlint-tsrx` and `oxfmt-tsrx`; both were folded into `@tsrx/oxc`, so
 // the shape is now asserted where it actually lives.
 test("package manifests have Vite+ compatible root and bin shapes", async () => {
   const manifest = JSON.parse(
     await readFile(join(root, "packages/toolchain/package.json"), "utf8"),
   );
-  assert.equal(manifest.name, "oxc-tsrx");
+  assert.equal(manifest.name, "@tsrx/oxc");
   assert.equal(manifest.type, "module");
   assert.equal(manifest.main, "./dist/index.js");
   for (const name of ["oxlint", "oxfmt"]) {

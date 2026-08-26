@@ -163,7 +163,7 @@ async function runInstallOnlyDiscoverySession() {
           name: "oxc-tsrx-own-client-discovery-proof",
           private: true,
           type: "module",
-          dependencies: { "oxc-tsrx": "0.6.0" },
+          dependencies: { "@tsrx/oxc": "0.6.0" },
         },
         null,
         2,
@@ -187,7 +187,7 @@ async function runInstallOnlyDiscoverySession() {
         `${facade} exists without oxc-tsrx setup`,
       );
     }
-    await access(join(discovery, "node_modules/oxc-tsrx/bin/oxc-tsrx-lsp"));
+    await access(join(discovery, "node_modules/@tsrx/oxc/bin/oxc-tsrx-lsp"));
 
     await writePathDecoys(decoys, decoyMarker);
     const search = [

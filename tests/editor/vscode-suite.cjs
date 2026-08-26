@@ -215,7 +215,7 @@ async function runDiscovery() {
     const manifest = JSON.parse(
       readFileSync(nodePath.join(root, "package.json"), "utf8"),
     );
-    assert.deepEqual(manifest.dependencies, { "oxc-tsrx": "0.1.0" });
+    assert.deepEqual(manifest.dependencies, { "@tsrx/oxc": "0.1.0" });
     assert.equal(manifest.scripts, undefined);
 
     // No pointer of any kind: not in the environment, not in the settings.
@@ -340,7 +340,7 @@ async function runDiscovery() {
       `expected one native server under the wrapper, saw ${JSON.stringify(children)}`,
     );
     const nativeRoots = pathVariants(
-      nodePath.join(root, "node_modules", "@oxc-tsrx"),
+      nodePath.join(root, "node_modules", "@tsrx"),
     );
     assert.ok(
       nativeRoots.some((candidate) =>

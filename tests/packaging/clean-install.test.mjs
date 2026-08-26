@@ -127,7 +127,7 @@ test("untouched tarballs run the complete supported workflow from an empty consu
     private: true,
     type: "module",
     dependencies: {
-      "oxc-tsrx": "0.6.0",
+      "@tsrx/oxc": "0.6.0",
       "vite-plus": "0.2.4",
     },
   };
@@ -152,8 +152,8 @@ test("untouched tarballs run the complete supported workflow from an empty consu
   assert.equal(auditReport.metadata.vulnerabilities.high, 0);
   assert.equal(auditReport.metadata.vulnerabilities.critical, 0);
 
-  assert.deepEqual(Object.keys(packageJson.dependencies), ["oxc-tsrx", "vite-plus"]);
-  const toolchainRoot = join(consumer, "node_modules/oxc-tsrx");
+  assert.deepEqual(Object.keys(packageJson.dependencies), ["@tsrx/oxc", "vite-plus"]);
+  const toolchainRoot = join(consumer, "node_modules/@tsrx/oxc");
   const activate = await mustRun(
     process.execPath,
     [join(toolchainRoot, "bin/oxc-tsrx"), "setup", "--json"],
@@ -173,7 +173,7 @@ test("untouched tarballs run the complete supported workflow from an empty consu
   const toolchainRequire = createRequire(join(toolchainRoot, "package.json"));
   const consumerRoot = await realpath(consumer);
   // The native resolution logic is the installed package's own, and it is the
-  // only first-party code under `oxc-tsrx` now: there is no wrapper package
+  // only first-party code under `@tsrx/oxc` now: there is no wrapper package
   // between the toolchain and its platform artifact.
   const runtime = await import(pathToFileURL(join(toolchainRoot, "dist/runtime.js")).href);
   const nativeRoot = resolve(

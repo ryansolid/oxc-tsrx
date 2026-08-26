@@ -153,7 +153,7 @@ function cleanEnvironment(temporary, registry) {
 /** Discovery always runs through the copy of the resolver the consumer installed. */
 async function discoverFrom(consumer) {
   const module = await import(
-    pathToFileURL(join(consumer, "node_modules/oxc-tsrx/dist/provider-resolve.js")).href
+    pathToFileURL(join(consumer, "node_modules/@tsrx/oxc/dist/provider-resolve.js")).href
   );
   return module.discoverProviders({ root: await realpath(consumer) });
 }
@@ -168,7 +168,7 @@ const ORDINARY_DOCUMENTS = ["src/app.ts", "src/app.tsx", "src/app.js", "tsconfig
 
 async function editorStateFor(consumer) {
   const module = await import(
-    pathToFileURL(join(consumer, "node_modules/oxc-tsrx/dist/provider-resolve.js")).href
+    pathToFileURL(join(consumer, "node_modules/@tsrx/oxc/dist/provider-resolve.js")).href
   );
   return providerClient.discoverWorkspaceFolder(await realpath(consumer), {
     discover: module.discoverProviders,
@@ -189,9 +189,9 @@ async function assertEditorClients(consumer) {
   assert.equal(state.clients.length, 1);
 
   const [client] = state.clients;
-  const executable = join(appRoot, "node_modules/oxc-tsrx/bin/oxc-tsrx-lsp");
+  const executable = join(appRoot, "node_modules/@tsrx/oxc/bin/oxc-tsrx-lsp");
   assert.equal(client.id, "tsrx");
-  assert.equal(client.package, "oxc-tsrx");
+  assert.equal(client.package, "@tsrx/oxc");
   assert.deepEqual(client.extensions, [".tsrx"]);
   assert.equal(client.executable, executable);
   assert.equal(client.command, process.execPath);
@@ -294,7 +294,7 @@ test(
     // The published toolchain tarball, plus dependency stubs so the fixture
     // needs no network and executes no native artifact.
     //
-    // The eight `@oxc-tsrx/native-*` optional dependencies are stubbed for the
+    // The eight `@tsrx/oxc-*` optional dependencies are stubbed for the
     // same reason the third-party packages are, and the reason is easy to miss:
     // without them `npm` falls through to the public registry, which only ever
     // has *already published* versions. That worked by accident while the
@@ -311,7 +311,7 @@ test(
         writePackage(
           join(sources, `native-${target.packageSuffix}`),
           {
-            name: `@oxc-tsrx/native-${target.packageSuffix}`,
+            name: `@tsrx/oxc-${target.packageSuffix}`,
             version: toolchainVersion,
             os: [target.os],
             cpu: [target.cpu],
@@ -388,7 +388,7 @@ test(
     };
 
     await context.test("npm: one declared dependency and no activation step", async () => {
-      const app = await consumer("npm-consumer", { "oxc-tsrx": "0.6.0" });
+      const app = await consumer("npm-consumer", { "@tsrx/oxc": "0.6.0" });
       await mustRun(
         npm,
         ["install", "--ignore-scripts", "--no-audit", "--no-fund", `--registry=${registry.url}`],
@@ -402,7 +402,7 @@ test(
       assert.deepEqual(Object.keys(index.extensions), [".tsrx"]);
       assert.deepEqual(
         index.providers.map(({ name, id, protocol }) => ({ name, id, protocol })),
-        [{ name: "oxc-tsrx", id: "tsrx", protocol: 1 }],
+        [{ name: "@tsrx/oxc", id: "tsrx", protocol: 1 }],
       );
       assert.deepEqual(
         index.diagnostics.filter((entry) => entry.severity === "error"),
@@ -412,16 +412,16 @@ test(
       const capabilities = index.extensions[".tsrx"].capabilities;
       assert.deepEqual(Object.keys(capabilities).sort(), ["format", "lint", "lsp", "parse"]);
       for (const [capability, expected] of [
-        ["lint", join("node_modules/oxc-tsrx/bin/oxc-tsrx-lint")],
-        ["format", join("node_modules/oxc-tsrx/bin/oxc-tsrx-fmt")],
-        ["lsp", join("node_modules/oxc-tsrx/bin/oxc-tsrx-lsp")],
-        ["parse", join("node_modules/oxc-tsrx/dist/parser.js")],
+        ["lint", join("node_modules/@tsrx/oxc/bin/oxc-tsrx-lint")],
+        ["format", join("node_modules/@tsrx/oxc/bin/oxc-tsrx-fmt")],
+        ["lsp", join("node_modules/@tsrx/oxc/bin/oxc-tsrx-lsp")],
+        ["parse", join("node_modules/@tsrx/oxc/dist/parser.js")],
       ]) {
         const target = capabilities[capability];
         assert.equal(relative(appRoot, target.path), expected, capability);
         assert.equal(await exists(target.path), true);
       }
-      assert.equal(capabilities.parse.specifier, "oxc-tsrx/parser");
+      assert.equal(capabilities.parse.specifier, "@tsrx/oxc/parser");
       assert.equal(
         Object.values(capabilities).some(({ path }) =>
           path.split(/[/\\]/u).includes(".bin"),
@@ -432,7 +432,7 @@ test(
 
       // Nothing in the installed provider tree is loaded to build the index.
       const manifest = JSON.parse(
-        await readFile(join(app, "node_modules/oxc-tsrx/package.json"), "utf8"),
+        await readFile(join(app, "node_modules/@tsrx/oxc/package.json"), "utf8"),
       );
       assert.equal(manifest.oxc.provider.protocol, 1);
       assert.equal(manifest.scripts, undefined);
@@ -467,7 +467,7 @@ test(
         { cwd: app, env: environment },
       );
       assert.equal(
-        await exists(join(app, "node_modules/oxc-tsrx/dist/provider-resolve.js")),
+        await exists(join(app, "node_modules/@tsrx/oxc/dist/provider-resolve.js")),
         true,
         "the frozen reinstall must restore the provider metadata and resolver",
       );
@@ -485,7 +485,7 @@ test(
         subtest.skip("pnpm is not installed");
         return;
       }
-      const app = await consumer("pnpm-consumer", { "oxc-tsrx": "0.6.0" });
+      const app = await consumer("pnpm-consumer", { "@tsrx/oxc": "0.6.0" });
       await mustRun(
         pnpm,
         ["install", "--ignore-scripts", `--registry=${registry.url}`],
@@ -497,7 +497,7 @@ test(
       const index = await discoverFrom(app);
       const appRoot = await realpath(app);
       assert.deepEqual(Object.keys(index.extensions), [".tsrx"]);
-      assert.equal(index.extensions[".tsrx"].package, "oxc-tsrx");
+      assert.equal(index.extensions[".tsrx"].package, "@tsrx/oxc");
       assert.equal(
         isInside(appRoot, index.extensions[".tsrx"].providerRoot),
         true,
@@ -524,7 +524,7 @@ test(
       async () => {
         const app = await consumer("mixed-consumer", {
           "demo-language-provider": "1.0.0",
-          "oxc-tsrx": "0.6.0",
+          "@tsrx/oxc": "0.6.0",
         });
         await mustRun(
           npm,
@@ -536,7 +536,7 @@ test(
         assert.deepEqual(Object.keys(index.extensions).sort(), [".demo", ".tsrx"]);
         assert.deepEqual(
           index.providers.map(({ name }) => name).sort(),
-          ["demo-language-provider", "oxc-tsrx"],
+          ["demo-language-provider", "@tsrx/oxc"],
         );
         assert.equal(index.extensions[".demo"].package, "demo-language-provider");
         assert.deepEqual(
@@ -613,7 +613,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
     // would make this fixture fail for a reason that is not about discovery.
     await symlink(
       toolchainRoot,
-      join(directory, "node_modules/oxc-tsrx"),
+      join(directory, "node_modules/@tsrx/oxc"),
       process.platform === "win32" ? "junction" : "dir",
     );
     for (const [packageName, manifest] of Object.entries(packages)) {
@@ -625,7 +625,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
   };
 
   await context.test("a clean project reports every declared capability", async () => {
-    const project = await fixture("solo", { "oxc-tsrx": "0.6.0" }, {});
+    const project = await fixture("solo", { "@tsrx/oxc": "0.6.0" }, {});
     const before = await snapshot(project);
     const result = await run(process.execPath, [cli, "providers", "--json", "--project", project]);
     assert.equal(result.status, 0, result.stderr);
@@ -634,13 +634,13 @@ test("the providers report is a read-only audit that fails loudly", async (conte
     assert.deepEqual(Object.keys(report.extensions), [".tsrx"]);
     assert.deepEqual(
       report.providers.map(({ name, id }) => ({ name, id })),
-      [{ name: "oxc-tsrx", id: "tsrx" }],
+      [{ name: "@tsrx/oxc", id: "tsrx" }],
     );
     assert.deepEqual(await snapshot(project), before, "the report must write nothing");
 
     const text = await run(process.execPath, [cli, "providers", "--project", project]);
     assert.equal(text.status, 0, text.stderr);
-    assert.match(text.stdout, /oxc-tsrx@0\.6\.0 \(provider tsrx, protocol 1\)/u);
+    assert.match(text.stdout, /@tsrx\/oxc@0\.6\.0 \(provider tsrx, protocol 1\)/u);
     assert.match(text.stdout, /language tsrx: \.tsrx/u);
     assert.match(text.stdout, /routed extensions: \.tsrx -> oxc-tsrx/u);
   });
@@ -648,7 +648,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
   await context.test("two providers claiming one extension fail loudly", async () => {
     const project = await fixture(
       "conflict",
-      { "oxc-tsrx": "0.6.0", "rival-language-provider": "1.0.0" },
+      { "@tsrx/oxc": "0.6.0", "rival-language-provider": "1.0.0" },
       { "rival-language-provider": providerStub("rival-language-provider", "rival", ".tsrx") },
     );
     const result = await run(process.execPath, [cli, "providers", "--json", "--project", project]);
@@ -657,13 +657,13 @@ test("the providers report is a read-only audit that fails loudly", async (conte
     assert.equal(report.ok, false);
     const [failure] = report.diagnostics.filter((entry) => entry.severity === "error");
     assert.equal(failure.code, "extension-conflict");
-    assert.deepEqual(failure.packages, ["oxc-tsrx", "rival-language-provider"]);
+    assert.deepEqual(failure.packages, ["@tsrx/oxc", "rival-language-provider"]);
     assert.equal(failure.extension, ".tsrx");
     assert.equal(report.extensions[".tsrx"], undefined, "a conflict never picks a winner");
 
     const text = await run(process.execPath, [cli, "providers", "--project", project]);
     assert.equal(text.status, 1);
-    assert.match(text.stdout, /error: packages oxc-tsrx and rival-language-provider/u);
+    assert.match(text.stdout, /error: packages @tsrx\/oxc and rival-language-provider/u);
   });
 
   await context.test("claiming a core extension fails loudly", async () => {

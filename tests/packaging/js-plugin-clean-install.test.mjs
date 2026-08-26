@@ -205,7 +205,7 @@ function forFile(diagnostics, suffix) {
 }
 
 test(
-  "an installed oxc-tsrx runs a project's own Oxlint plugin on .tsrx, in the CLI and the editor",
+  "an installed @tsrx/oxc runs a project's own Oxlint plugin on .tsrx, in the CLI and the editor",
   { timeout: 1_800_000 },
   async (context) => {
     const temporary = await mkdtemp(join(tmpdir(), "oxc-tsrx-js-plugin-install-"));
@@ -257,7 +257,7 @@ test(
           type: "module",
           // A registry range, not a path. `npm install` has to go to the
           // registry for this, which is the whole point of the file.
-          dependencies: { "oxc-tsrx": toolchain.manifest.version },
+          dependencies: { "@tsrx/oxc": toolchain.manifest.version },
         },
         null,
         2,
@@ -288,10 +288,10 @@ test(
     await writeFile(join(consumer, "src/Widget.tsrx"), WIDGET_TSRX);
     await writeFile(join(consumer, "src/Ordinary.tsx"), ORDINARY_TSX);
 
-    // Nothing links back here. `oxc-tsrx` and its platform package are both
+    // Nothing links back here. `@tsrx/oxc` and its platform package are both
     // real directories under the consumer, reached through the registry.
     const consumerRoot = await realpath(consumer);
-    const toolchainRoot = join(consumer, "node_modules/oxc-tsrx");
+    const toolchainRoot = join(consumer, "node_modules/@tsrx/oxc");
     assert.equal((await realpath(toolchainRoot)).startsWith(consumerRoot), true);
     assert.equal(
       (await realpath(join(consumer, "node_modules", native.packageName))).startsWith(consumerRoot),

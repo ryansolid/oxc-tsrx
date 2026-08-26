@@ -266,7 +266,7 @@ function pathVariants(target) {
  * name, no state written by any setup command.
  */
 function declaredLanguageServer(root) {
-  const packageRoot = nodePath.join(root, "node_modules", "oxc-tsrx");
+  const packageRoot = nodePath.join(root, "node_modules", "@tsrx/oxc");
   const manifest = JSON.parse(
     readFileSync(nodePath.join(packageRoot, "package.json"), "utf8"),
   );
@@ -384,11 +384,11 @@ function expectedHost(root, mode) {
     assert.equal(typeof declared, "string");
     return {
       bin: declared,
-      forbidden: nodePath.join(root, "node_modules", "oxc-tsrx", "bin", "oxlint"),
+      forbidden: nodePath.join(root, "node_modules", "@tsrx/oxc", "bin", "oxlint"),
     };
   }
   return {
-    bin: nodePath.join(root, "node_modules", "oxc-tsrx", "bin", "oxlint"),
+    bin: nodePath.join(root, "node_modules", "@tsrx/oxc", "bin", "oxlint"),
     forbidden: null,
   };
 }
@@ -671,7 +671,7 @@ function settingsUnderTest(root) {
  * runner.
  */
 function assertLinterShimIsNotOurs(root) {
-  const provider = realpathSync(nodePath.join(root, "node_modules", "oxc-tsrx"));
+  const provider = realpathSync(nodePath.join(root, "node_modules", "@tsrx/oxc"));
   const shim = nodePath.join(root, "node_modules", ".bin", "oxlint");
   assert.ok(existsSync(shim), "the collider did not take node_modules/.bin/oxlint");
   const info = lstatSync(shim);
@@ -683,7 +683,7 @@ function assertLinterShimIsNotOurs(root) {
   );
   if (info.isFile() && !info.isSymbolicLink()) {
     assert.equal(
-      /oxc-tsrx[\\/]bin[\\/]oxlint/u.test(readFileSync(shim, "utf8")),
+      /@tsrx[\\/]oxc[\\/]bin[\\/]oxlint/u.test(readFileSync(shim, "utf8")),
       false,
       "node_modules/.bin/oxlint is a text shim naming this package, so auto-detection would have found us anyway",
     );
@@ -825,7 +825,7 @@ async function runSetupValue(mode) {
 
   await setupStep("spawn the configured path itself, with no exec-path help", async () => {
     // The value is relative, `oxc.useExecPath` is absent, and the extension's
-    // own loader rule calls a path ending `oxc-tsrx/bin/oxlint` native, so this
+    // own loader rule calls a path ending `@tsrx/oxc/bin/oxlint` native, so this
     // is the file being executed directly rather than handed to a Node.
     const candidates = pathVariants(configuredPath);
     const table = await waitFor(

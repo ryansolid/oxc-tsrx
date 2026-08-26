@@ -16,12 +16,12 @@
   },
   "packages": {
     "toolchain": {
-      "name": "oxc-tsrx",
+      "name": "@tsrx/oxc",
       "version": "0.1.5",
       "integrity": "sha512-l0KSDCQkrnX9vaqA3fGMjbtvzgrmpKKEoppQCMO9VDpbz2Uvxk7NHX+K2RJwMVrJCUy3Oni/e+fgrMM65VYvpA=="
     },
     "native": {
-      "name": "@oxc-tsrx/native-darwin-arm64",
+      "name": "@tsrx/oxc-darwin-arm64",
       "version": "0.1.5",
       "target": "aarch64-apple-darwin",
       "integrity": "sha512-LepSreXv8Q4zLhUgtmzT4rsTLO7FlrFa+WSkR9KaxK8hnKtedI5jKrOqFyS5NA0BfWNl1NS5HhcuOpZcbcEEhg=="
@@ -29,9 +29,9 @@
     "vitePlus": "0.2.4"
   },
   "resolutions": {
-    "lint": "node_modules/@oxc-tsrx/native-darwin-arm64/bin/oxc-tsrx",
-    "format": "node_modules/@oxc-tsrx/native-darwin-arm64/bin/oxc-tsrx",
-    "server": "node_modules/@oxc-tsrx/native-darwin-arm64/bin/oxc-tsrx"
+    "lint": "node_modules/@tsrx/oxc-darwin-arm64/bin/oxc-tsrx",
+    "format": "node_modules/@tsrx/oxc-darwin-arm64/bin/oxc-tsrx",
+    "server": "node_modules/@tsrx/oxc-darwin-arm64/bin/oxc-tsrx"
   },
   "audit": {
     "info": 0,

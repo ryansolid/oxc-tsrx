@@ -21,7 +21,7 @@ import {
  */
 
 const OUR_MANIFEST = JSON.stringify({
-  name: "oxc-tsrx",
+  name: "@tsrx/oxc",
   version: "0.1.5",
   bin: { oxlint: "./bin/oxlint", oxfmt: "./bin/oxfmt" },
   oxc: {
@@ -54,7 +54,7 @@ const OXLINT_MANIFEST = JSON.stringify({
 
 const CONSUMER_MANIFEST = JSON.stringify({
   name: "app",
-  dependencies: { "oxc-tsrx": "^0.1.5", "vite-plus": "^1.0.0" },
+  dependencies: { "@tsrx/oxc": "^0.1.5", "vite-plus": "^1.0.0" },
 });
 
 /**
@@ -84,8 +84,8 @@ test("a pnpm tree hands the editor Vite+'s oxlint, and only the setting takes it
     "/w/node_modules/.bin/oxfmt": pnpmShim("../vite-plus/bin/oxfmt"),
     "/w/node_modules/vite-plus/package.json": VITE_PLUS_MANIFEST,
     "/w/node_modules/vite-plus/bin/oxlint": EXECUTABLE,
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const detected = await resolve({ workspaceFolders: ["/w"], stat });
@@ -104,11 +104,11 @@ test("a pnpm tree hands the editor Vite+'s oxlint, and only the setting takes it
   // here, and the consumer would still have a silent editor.
   const configured = await resolve({
     workspaceFolders: ["/w"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
   assert.equal(configured.source, "configured");
-  assert.equal(configured.path, "/w/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(configured.path, "/w/node_modules/@tsrx/oxc/bin/oxlint");
   assert.equal(configured.loader, "native");
   assert.equal(configured.tsrxAware, true);
 });
@@ -123,8 +123,8 @@ test("an npm tree with no .bin/oxlint at all falls through the entire chain", as
     "/w/node_modules/.bin/oxfmt": { link: "../oxfmt/bin/oxfmt" },
     "/w/node_modules/oxfmt/package.json": JSON.stringify({ name: "oxfmt", bin: "./bin/oxfmt" }),
     "/w/node_modules/oxfmt/bin/oxfmt": EXECUTABLE,
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const result = await resolve({
@@ -150,7 +150,7 @@ test("an npm tree with no .bin/oxlint at all falls through the entire chain", as
   // tree improves by installing harder. The setting is the only route.
   const configured = await resolve({
     workspaceFolders: ["/w"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
   assert.equal(configured.tsrxAware, true);
@@ -161,15 +161,15 @@ test("an npm tree with no .bin/oxlint at all falls through the entire chain", as
 test("a .bin/oxlint symlinked into this package resolves as ours with no setting", async () => {
   const stat = createFixtureStat({
     "/w/package.json": CONSUMER_MANIFEST,
-    "/w/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const result = await resolve({ workspaceFolders: ["/w"], stat });
   assert.equal(result.source, "workspace-node-modules");
   assert.equal(result.path, "/w/node_modules/.bin/oxlint");
-  assert.equal(result.realPath, "/w/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(result.realPath, "/w/node_modules/@tsrx/oxc/bin/oxlint");
   assert.equal(result.tsrxAware, true);
   // Still `native`: a `.bin` hit is never classified as a Node script, whatever
   // it points at.
@@ -185,7 +185,7 @@ test("a workspace root above the project root never reads the project's settings
     "/repo/apps/web/package.json": CONSUMER_MANIFEST,
     // `setup` wrote this, at the project root, where VS Code will never look.
     "/repo/apps/web/.vscode/settings.json": JSON.stringify({
-      "oxc.path.oxlint": "node_modules/oxc-tsrx/bin/oxlint",
+      "oxc.path.oxlint": "node_modules/@tsrx/oxc/bin/oxlint",
     }),
     "/repo/apps/web/node_modules/.bin/oxlint": {
       content: "#!/bin/sh\n",
@@ -193,8 +193,8 @@ test("a workspace root above the project root never reads the project's settings
     },
     "/repo/apps/web/node_modules/vite-plus/package.json": VITE_PLUS_MANIFEST,
     "/repo/apps/web/node_modules/vite-plus/bin/oxlint": EXECUTABLE,
-    "/repo/apps/web/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/repo/apps/web/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/repo/apps/web/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/repo/apps/web/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   };
   const stat = createFixtureStat(files);
 
@@ -214,21 +214,21 @@ test("a workspace root above the project root never reads the project's settings
   const misplaced = await resolve({
     workspaceFolders: ["/repo"],
     packageJsonDirectories: ["/repo", "/repo/apps/web"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
   assert.equal(misplaced.source, "configured");
   assert.equal(misplaced.path, null);
   assert.equal(misplaced.reason, "configured-missing");
-  assert.equal(misplaced.attempted, "/repo/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(misplaced.attempted, "/repo/node_modules/@tsrx/oxc/bin/oxlint");
 
   // Open the project folder itself and the same value is correct.
   const opened = await resolve({
     workspaceFolders: ["/repo/apps/web"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
-  assert.equal(opened.path, "/repo/apps/web/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(opened.path, "/repo/apps/web/node_modules/@tsrx/oxc/bin/oxlint");
   assert.equal(opened.tsrxAware, true);
 });
 
@@ -244,16 +244,16 @@ test("a relative value resolves against the first workspace folder, not the proj
     },
     "/repo/apps/web/node_modules/vite-plus/package.json": VITE_PLUS_MANIFEST,
     "/repo/apps/web/node_modules/vite-plus/bin/oxlint": EXECUTABLE,
-    "/repo/apps/web/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/repo/apps/web/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/repo/apps/web/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/repo/apps/web/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const misresolved = await resolve({
     workspaceFolders: ["/other", "/repo/apps/web"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
-  assert.equal(misresolved.attempted, "/other/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(misresolved.attempted, "/other/node_modules/@tsrx/oxc/bin/oxlint");
   assert.equal(misresolved.path, null);
   // And it does not quietly land on the shim that is sitting right there: a
   // configured value replaces the chain rather than joining it.
@@ -262,10 +262,10 @@ test("a relative value resolves against the first workspace folder, not the proj
 
   const reordered = await resolve({
     workspaceFolders: ["/repo/apps/web", "/other"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat,
   });
-  assert.equal(reordered.path, "/repo/apps/web/node_modules/oxc-tsrx/bin/oxlint");
+  assert.equal(reordered.path, "/repo/apps/web/node_modules/@tsrx/oxc/bin/oxlint");
   assert.equal(reordered.tsrxAware, true);
 });
 
@@ -279,9 +279,9 @@ test("Yarn PnP resolves through the loader, from an ancestor, and only when trus
     "/store/oxlint-npm-1.59.0/package.json": OXLINT_MANIFEST,
     "/store/oxlint-npm-1.59.0/dist/index.js": "",
     "/store/oxlint-npm-1.59.0/bin/oxlint": EXECUTABLE,
-    "/store/oxc-tsrx-npm-0.1.5/package.json": OUR_MANIFEST,
-    "/store/oxc-tsrx-npm-0.1.5/dist/index.js": "",
-    "/store/oxc-tsrx-npm-0.1.5/bin/oxlint": EXECUTABLE,
+    "/store/@tsrx-oxc-npm-0.1.5/package.json": OUR_MANIFEST,
+    "/store/@tsrx-oxc-npm-0.1.5/dist/index.js": "",
+    "/store/@tsrx-oxc-npm-0.1.5/bin/oxlint": EXECUTABLE,
   });
   const issuers = [];
   const pnp = {
@@ -304,10 +304,10 @@ test("Yarn PnP resolves through the loader, from an ancestor, and only when trus
 
   const ours = await resolve({
     workspaceFolders: ["/pnp"],
-    pnp: { "/pnp/.pnp.cjs": { resolveRequest: () => "/store/oxc-tsrx-npm-0.1.5/dist/index.js" } },
+    pnp: { "/pnp/.pnp.cjs": { resolveRequest: () => "/store/@tsrx-oxc-npm-0.1.5/dist/index.js" } },
     stat,
   });
-  assert.equal(ours.path, "/store/oxc-tsrx-npm-0.1.5/bin/oxlint");
+  assert.equal(ours.path, "/store/@tsrx-oxc-npm-0.1.5/bin/oxlint");
   assert.equal(ours.tsrxAware, true);
 
   // `ie()` is guarded by workspace trust, so an untrusted window loses PnP as
@@ -329,9 +329,9 @@ test("the first workspace folder's .bin shadows every folder after it", async ()
     "/repo/node_modules/vite-plus/package.json": VITE_PLUS_MANIFEST,
     "/repo/node_modules/vite-plus/bin/oxlint": EXECUTABLE,
     "/repo/apps/web/package.json": CONSUMER_MANIFEST,
-    "/repo/apps/web/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/repo/apps/web/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/repo/apps/web/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/repo/apps/web/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/repo/apps/web/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/repo/apps/web/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const shadowed = await resolve({ workspaceFolders: ["/repo", "/repo/apps/web"], stat });
@@ -350,20 +350,20 @@ test("the first workspace folder's .bin shadows every folder after it", async ()
 test("on Windows the value setup writes resolves and still cannot be spawned", async () => {
   const stat = createFixtureStat({
     "C:\\w\\package.json": CONSUMER_MANIFEST,
-    "C:\\w\\node_modules\\oxc-tsrx\\package.json": OUR_MANIFEST,
-    "C:\\w\\node_modules\\oxc-tsrx\\bin\\oxlint": EXECUTABLE,
-    "C:\\w\\node_modules\\oxc-tsrx\\bin\\oxlint.exe": EXECUTABLE,
+    "C:\\w\\node_modules\\@tsrx\\oxc\\package.json": OUR_MANIFEST,
+    "C:\\w\\node_modules\\@tsrx\\oxc\\bin\\oxlint": EXECUTABLE,
+    "C:\\w\\node_modules\\@tsrx\\oxc\\bin\\oxlint.exe": EXECUTABLE,
   });
 
   const written = await resolve({
     platform: "win32",
     workspaceFolders: ["C:\\w"],
-    configured: "node_modules\\oxc-tsrx\\bin\\oxlint",
+    configured: "node_modules\\@tsrx\\oxc\\bin\\oxlint",
     stat,
   });
-  assert.equal(written.path, "C:\\w\\node_modules\\oxc-tsrx\\bin\\oxlint");
+  assert.equal(written.path, "C:\\w\\node_modules\\@tsrx\\oxc\\bin\\oxlint");
   assert.equal(written.tsrxAware, true);
-  // It ends in `oxc-tsrx\bin\oxlint`, not `oxlint\bin\oxlint`, so it is not
+  // It ends in `@tsrx\oxc\bin\oxlint`, not `oxlint\bin\oxlint`, so it is not
   // classified as a Node script, and a `native` loader on Windows is spawned
   // with `shell: true`, which is `cmd.exe`, which cannot execute an
   // extensionless file. Resolution succeeds and the language server never
@@ -374,7 +374,7 @@ test("on Windows the value setup writes resolves and still cannot be spawned", a
   const explicit = await resolve({
     platform: "win32",
     workspaceFolders: ["C:\\w"],
-    configured: "node_modules\\oxc-tsrx\\bin\\oxlint.exe",
+    configured: "node_modules\\@tsrx\\oxc\\bin\\oxlint.exe",
     stat,
   });
   assert.equal(explicit.spawnable, true);
@@ -445,16 +445,16 @@ test("a configured Windows value is retried with .exe, and .exe is stripped else
 test("a configured value that fails validation kills the linter instead of falling back", async () => {
   const stat = createFixtureStat({
     "/w/package.json": CONSUMER_MANIFEST,
-    "/w/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   // Without the key this tree resolves perfectly.
   assert.equal((await resolve({ workspaceFolders: ["/w"], stat })).tsrxAware, true);
 
   for (const [value, reason] of [
-    ["../sibling/node_modules/oxc-tsrx/bin/oxlint", "configured-rejected-traversal"],
+    ["../sibling/node_modules/@tsrx/oxc/bin/oxlint", "configured-rejected-traversal"],
     [".\\oxlint", "configured-rejected-traversal"],
     ["/opt/my project!/oxlint", "configured-rejected-metacharacter"],
     ["/opt/$HOME/oxlint", "configured-rejected-metacharacter"],
@@ -477,14 +477,14 @@ test("a configured value that fails validation kills the linter instead of falli
 test("an untrusted workspace drops the configured value and does not auto-detect either", async () => {
   const stat = createFixtureStat({
     "/w/package.json": CONSUMER_MANIFEST,
-    "/w/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const result = await resolve({
     workspaceFolders: ["/w"],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     trusted: false,
     stat,
   });
@@ -501,7 +501,7 @@ test("an untrusted workspace drops the configured value and does not auto-detect
 test("a relative value with no workspace folder resolves to nothing", async () => {
   const result = await resolve({
     workspaceFolders: [],
-    configured: "node_modules/oxc-tsrx/bin/oxlint",
+    configured: "node_modules/@tsrx/oxc/bin/oxlint",
     stat: createFixtureStat({}),
   });
   assert.equal(result.reason, "no-workspace-folder");
@@ -510,9 +510,9 @@ test("a relative value with no workspace folder resolves to nothing", async () =
 
 test("an empty configured value is not a value and auto-detection still runs", async () => {
   const stat = createFixtureStat({
-    "/w/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/w/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/w/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/w/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/w/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/w/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
   const result = await resolve({ workspaceFolders: ["/w"], configured: "", stat });
   assert.equal(result.source, "workspace-node-modules");
@@ -526,9 +526,9 @@ test("require.resolve reads the resolved package's bin entry, and a missing one 
     "/w/node_modules/oxlint/package.json": OXLINT_MANIFEST,
     "/w/node_modules/oxlint/dist/index.js": "",
     "/w/node_modules/oxlint/bin/oxlint": EXECUTABLE,
-    "/global/lib/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-    "/global/lib/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-    "/global/lib/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+    "/global/lib/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+    "/global/lib/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+    "/global/lib/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
   });
 
   const requested = [];
@@ -555,9 +555,9 @@ test("require.resolve reads the resolved package's bin entry, and a missing one 
     stat: createFixtureStat({
       "/w/node_modules/nobin/package.json": JSON.stringify({ name: "nobin" }),
       "/w/node_modules/nobin/dist/index.js": "",
-      "/global/lib/node_modules/.bin/oxlint": { link: "../oxc-tsrx/bin/oxlint" },
-      "/global/lib/node_modules/oxc-tsrx/package.json": OUR_MANIFEST,
-      "/global/lib/node_modules/oxc-tsrx/bin/oxlint": EXECUTABLE,
+      "/global/lib/node_modules/.bin/oxlint": { link: "../@tsrx/oxc/bin/oxlint" },
+      "/global/lib/node_modules/@tsrx/oxc/package.json": OUR_MANIFEST,
+      "/global/lib/node_modules/@tsrx/oxc/bin/oxlint": EXECUTABLE,
     }),
   });
   assert.equal(noBin.source, "global-node-modules");
@@ -595,7 +595,7 @@ test("global roots and then PATH are the last two steps, in that order", async (
 
 test("the loader test keys on the package name, which is why our own value is native", async () => {
   assert.equal(configuredLoader("oxlint", "/w/node_modules/oxlint/bin/oxlint", "linux"), "node");
-  assert.equal(configuredLoader("oxlint", "/w/node_modules/oxc-tsrx/bin/oxlint", "linux"), "native");
+  assert.equal(configuredLoader("oxlint", "/w/node_modules/@tsrx/oxc/bin/oxlint", "linux"), "native");
   assert.equal(configuredLoader("oxlint", "C:\\w\\oxlint\\bin\\oxlint", "win32"), "node");
   // The same path with POSIX separators is not the pattern Windows looks for.
   assert.equal(configuredLoader("oxlint", "C:/w/oxlint/bin/oxlint", "win32"), "native");
@@ -604,7 +604,7 @@ test("the loader test keys on the package name, which is why our own value is na
   }
   assert.equal(configuredLoader("oxlint", "/w/run.ts", "linux"), "native");
 
-  assert.equal(rejectConfiguredValue("node_modules/oxc-tsrx/bin/oxlint"), null);
+  assert.equal(rejectConfiguredValue("node_modules/@tsrx/oxc/bin/oxlint"), null);
   assert.equal(rejectConfiguredValue("/opt/oxlint"), null);
 
   assert.equal(isSpawnable("/w/bin/oxlint", "native", "linux"), true);
