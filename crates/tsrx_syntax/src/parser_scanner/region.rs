@@ -47,6 +47,7 @@ impl Scanner<'_> {
         let mut can_start_jsx = true;
         let mut pending_control_paren = false;
         let mut closed_control_paren = false;
+        let mut pending_statement_body = false;
         let mut parens = TinyStack::<bool, 16>::new();
 
         while index < self.bytes.len() {
@@ -63,6 +64,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'`' => {
                     index = self.scan_template(index)?;
@@ -70,6 +72,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'/' if self.bytes.get(index + 1) == Some(&b'/') => {
                     index = self.skip_line_comment(index + 2);
@@ -83,6 +86,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'/' => {
                     index += usize::from(self.bytes.get(index + 1) == Some(&b'=')) + 1;
@@ -90,6 +94,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'<' if (can_start_jsx || self.line_leading_markup_starts_a_statement(index))
                     && self.looks_like_jsx_start(index)
@@ -109,6 +114,7 @@ impl Scanner<'_> {
                             can_start_jsx = true;
                             pending_control_paren = false;
                             closed_control_paren = false;
+                            pending_statement_body = false;
                         }
                         Err(ProjectionError::UnsupportedSyntax { offset, construct }) => {
                             return Err(ProjectionError::UnsupportedSyntax { offset, construct });
@@ -121,6 +127,7 @@ impl Scanner<'_> {
                             can_start_jsx = false;
                             pending_control_paren = false;
                             closed_control_paren = false;
+                            pending_statement_body = false;
                         }
                     }
                 }
@@ -130,6 +137,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'@' if self.keyword_at(index, b"for") => {
                     index = self.parse_for(index, self.code_context(index, root_control_start))?;
@@ -137,6 +145,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'@' if self.keyword_at(index, b"switch") => {
                     index =
@@ -145,6 +154,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'@' if self.keyword_at(index, b"try") => {
                     index = self.parse_try(index, self.code_context(index, root_control_start))?;
@@ -152,6 +162,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'@' if self.bytes.get(index + 1) == Some(&b'{') => {
                     self.push_token(StructuralKind::FunctionBody, index)?;
@@ -160,6 +171,7 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'@' => {
                     if self.keyword_at(index, b"else")
@@ -185,20 +197,40 @@ impl Scanner<'_> {
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
-                b'&' if self.lazy_pattern_start(index).is_some() => {
-                    let pattern_start = self
-                        .lazy_pattern_start(index)
-                        .ok_or(ProjectionError::StructuralMismatch)?;
+                b'&' if self.lazy_pattern_start(index).is_some()
+                    || self
+                        .standalone_lazy_pattern_start(
+                            index,
+                            closed_control_paren || pending_statement_body,
+                        )
+                        .is_some() =>
+                {
+                    let (pattern_start, standalone) =
+                        if let Some(pattern_start) = self.lazy_pattern_start(index) {
+                            (pattern_start, false)
+                        } else {
+                            (
+                                self.standalone_lazy_pattern_start(
+                                    index,
+                                    closed_control_paren || pending_statement_body,
+                                )
+                                .ok_or(ProjectionError::StructuralMismatch)?,
+                                true,
+                            )
+                        };
                     self.parser_lazy_patterns.push(ParserLazyPattern {
                         ampersand: to_u32(index)?,
                         pattern_start: to_u32(pattern_start)?,
+                        standalone,
                     });
                     index += 1;
                     can_start_expression = true;
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'(' | b'[' | b'{' => {
                     let close = match byte {
@@ -223,6 +255,7 @@ impl Scanner<'_> {
                     }
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                     index += 1;
                     can_start_expression = true;
                     can_start_jsx = true;
@@ -256,6 +289,7 @@ impl Scanner<'_> {
                     };
                     can_start_jsx = (byte == b'}' && closed_block) || can_start_expression;
                     pending_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'0'..=b'9' => {
                     index = self.skip_number(index);
@@ -263,6 +297,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 _ if self.identifier_start_width(index).is_some() => {
                     let end = self.skip_identifier(index);
@@ -292,6 +327,7 @@ impl Scanner<'_> {
                             ));
                     can_start_jsx = can_start_expression;
                     closed_control_paren = false;
+                    pending_statement_body = matches!(identifier, b"else" | b"do");
                     index = end;
                 }
                 b'+' | b'-'
@@ -302,6 +338,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'!' if !can_start_expression => {
                     // In TypeScript expression position this is a postfix non-null assertion,
@@ -311,6 +348,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 b'.' => {
                     index += if self.bytes.get(index..index + 3) == Some(b"...") { 3 } else { 1 };
@@ -318,6 +356,7 @@ impl Scanner<'_> {
                     can_start_jsx = false;
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
                 _ => {
                     index += 1;
@@ -325,6 +364,7 @@ impl Scanner<'_> {
                     can_start_jsx = can_start_expression || matches!(byte, b';');
                     pending_control_paren = false;
                     closed_control_paren = false;
+                    pending_statement_body = false;
                 }
             }
         }

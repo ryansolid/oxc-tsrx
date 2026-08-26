@@ -159,12 +159,14 @@ pub struct ParserShorthandAttribute {
     pub identifier: ByteSpan,
 }
 
-/// One lazy destructuring marker between a declaration keyword and an array/object pattern.
+/// One lazy destructuring marker before an array/object pattern.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParserLazyPattern {
     pub ampersand: u32,
     pub pattern_start: u32,
+    /// `true` for a standalone `&{...} = value;` / `&[...] = value;` statement.
+    pub standalone: bool,
 }
 
 #[repr(C)]

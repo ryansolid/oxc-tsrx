@@ -319,6 +319,26 @@ impl Scanner<'_> {
             .map(|_| pattern_start)
     }
 
+    pub(super) fn standalone_lazy_pattern_start(
+        &self,
+        ampersand: usize,
+        statement_context: bool,
+    ) -> Option<usize> {
+        let pattern_start = ampersand.checked_add(1)?;
+        if !matches!(self.bytes.get(pattern_start), Some(b'[' | b'{')) {
+            return None;
+        }
+        let previous = previous_significant_byte(self.bytes, ampersand);
+        if previous.is_none()
+            || matches!(previous, Some(b';' | b'{' | b'}' | b':'))
+            || statement_context
+        {
+            Some(pattern_start)
+        } else {
+            None
+        }
+    }
+
     pub(super) fn keyword_at(&self, index: usize, keyword: &[u8]) -> bool {
         let end = index + 1 + keyword.len();
         self.bytes.get(index) == Some(&b'@')
