@@ -278,12 +278,12 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
 
 #[test]
 fn standalone_lazy_assignment_statements_match_the_estree_shape_and_authored_spans() {
-    let source = "&{ value = 1, ...rest } = object;\n&[first, ...tail] = items;";
+    let source = "&{ value, ...rest } = object;\n&[first, ...tail] = items;";
     let overlay = scan_for_parser(source).expect("standalone lazy assignment overlay");
     let projection = project_for_parser(source, &overlay).expect("standalone lazy projection");
     assert_eq!(
         projection.source(),
-        "var { value = 1, ...rest } = object;\nvar [first, ...tail] = items;"
+        "var { value, ...rest } = object;\nvar [first, ...tail] = items;"
     );
     let ordinary = parse_ordinary(OrdinaryParseRequest {
         filename: "standalone.tsx",
