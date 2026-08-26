@@ -1,19 +1,19 @@
 {
-  "name": "@oxc-tsrx/tsrx-core-compat",
+  "name": "@tsrx/oxc-core-compat",
   "version": "0.6.0",
-  "description": "A dependency-light @tsrx/core parser facade powered by oxc-tsrx/parser",
+  "description": "A dependency-light @tsrx/core parser facade powered by @tsrx/oxc/parser",
   "keywords": [
     "oxc",
     "parser",
     "tsrx"
   ],
-  "homepage": "https://thejackshelton.github.io/oxc-tsrx/",
+  "homepage": "https://compiled.run/oxc-tsrx",
   "bugs": {
-    "url": "https://github.com/thejackshelton/oxc-tsrx/issues"
+    "url": "https://github.com/tsrx-org/oxc/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thejackshelton/oxc-tsrx.git",
+    "url": "git+https://github.com/tsrx-org/oxc.git",
     "directory": "packages/tsrx-core-compat"
   },
   "type": "module",
@@ -42,7 +42,7 @@
   "sideEffects": false,
   "dependencies": {
     "@oxc-project/types": "0.140.0",
-    "oxc-tsrx": "0.6.0"
+    "@tsrx/oxc": "0.6.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

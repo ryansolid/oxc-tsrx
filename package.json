@@ -1,7 +1,7 @@
 {
-  "name": "oxc-for-tsrx",
+  "name": "@tsrx/oxc-monorepo",
   "version": "0.6.0",
-  "description": "Rust-native Oxlint and Oxfmt integration for TSRX",
+  "description": "The official OXC integration for TSRX",
   "private": true,
   "keywords": [
     "oxc",
@@ -12,11 +12,11 @@
   ],
   "homepage": "https://compiled.run/oxc-tsrx",
   "bugs": {
-    "url": "https://github.com/compiled-run/oxc-tsrx/issues"
+    "url": "https://github.com/tsrx-org/oxc/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/compiled-run/oxc-tsrx.git"
+    "url": "git+https://github.com/tsrx-org/oxc.git"
   },
   "license": "MIT",
   "packageManager": "pnpm@10.33.2",

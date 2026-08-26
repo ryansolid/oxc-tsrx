@@ -1,7 +1,7 @@
 {
-  "name": "oxc-tsrx",
+  "name": "@tsrx/oxc",
   "version": "0.6.0",
-  "description": "Rust-native Oxlint and Oxfmt for TSRX, JavaScript, TypeScript, and JSX",
+  "description": "The official OXC integration for TSRX — Rust-native Oxlint and Oxfmt for .tsrx, JavaScript, TypeScript, and JSX",
   "keywords": [
     "formatter",
     "javascript",
@@ -16,11 +16,11 @@
   ],
   "homepage": "https://compiled.run/oxc-tsrx",
   "bugs": {
-    "url": "https://github.com/compiled-run/oxc-tsrx/issues"
+    "url": "https://github.com/tsrx-org/oxc/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/compiled-run/oxc-tsrx.git",
+    "url": "git+https://github.com/tsrx-org/oxc.git",
     "directory": "packages/toolchain"
   },
   "type": "module",
@@ -128,14 +128,14 @@
     "tinyglobby": "0.2.17"
   },
   "optionalDependencies": {
-    "@oxc-tsrx/native-darwin-arm64": "0.6.0",
-    "@oxc-tsrx/native-darwin-x64": "0.6.0",
-    "@oxc-tsrx/native-linux-arm64-gnu": "0.6.0",
-    "@oxc-tsrx/native-linux-arm64-musl": "0.6.0",
-    "@oxc-tsrx/native-linux-x64-gnu": "0.6.0",
-    "@oxc-tsrx/native-linux-x64-musl": "0.6.0",
-    "@oxc-tsrx/native-win32-arm64-msvc": "0.6.0",
-    "@oxc-tsrx/native-win32-x64-msvc": "0.6.0"
+    "@tsrx/oxc-darwin-arm64": "0.6.0",
+    "@tsrx/oxc-darwin-x64": "0.6.0",
+    "@tsrx/oxc-linux-arm64-gnu": "0.6.0",
+    "@tsrx/oxc-linux-arm64-musl": "0.6.0",
+    "@tsrx/oxc-linux-x64-gnu": "0.6.0",
+    "@tsrx/oxc-linux-x64-musl": "0.6.0",
+    "@tsrx/oxc-win32-arm64-msvc": "0.6.0",
+    "@tsrx/oxc-win32-x64-msvc": "0.6.0"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

@@ -7,7 +7,7 @@ packages:
   - tests
 
 # npm workspaces always symlink a local package over a registry one. pnpm 10
-# flipped that default to false, which would make `oxc-tsrx: 0.1.0` in
+# flipped that default to false, which would make `@tsrx/oxc` in
 # packages/vscode and packages/tsrx-core-compat resolve from the registry
 # instead of from packages/toolchain. Keeping it true preserves npm's behaviour
 # without putting `workspace:` specifiers in manifests that `npm pack` and
@@ -24,7 +24,12 @@ linkWorkspacePackages: true
 # placeholder said, and it says it in a root development file rather than in the
 # published manifest, which keeps `packages/toolchain/package.json` exactly as a
 # consumer receives it.
+#
+# Both the new `@tsrx/oxc-*` names and the pre-migration `@oxc-tsrx/native-*`
+# ones are listed while the two coexist: the old names are still referenced by
+# published packages and by test fixtures pinned to a released version.
 ignoredOptionalDependencies:
+  - '@tsrx/oxc-*'
   - '@oxc-tsrx/native-*'
 
 # The one hoist this repository needs, and only this one.
