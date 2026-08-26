@@ -1,0 +1,47 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "installCommand": "cd .. && corepack enable && pnpm install --frozen-lockfile --ignore-scripts",
+  "buildCommand": "cd .. && SITE_ORIGIN=https://oxc.tsrx.dev SITE_BASE=/ node docs/build.mjs && rm -rf website-oxc/dist && cp -R docs/dist website-oxc/dist",
+  "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/github",
+      "destination": "https://github.com/tsrx-org/oxc",
+      "permanent": false
+    }
+  ]
+}

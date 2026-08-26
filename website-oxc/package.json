@@ -1,0 +1,8 @@
+{
+  "name": "website-oxc",
+  "private": true,
+  "description": "Vercel project root for https://oxc.tsrx.dev — builds the docs site from ../docs with a root base path",
+  "engines": {
+    "node": "22.x"
+  }
+}
