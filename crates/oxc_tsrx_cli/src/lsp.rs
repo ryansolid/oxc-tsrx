@@ -494,7 +494,9 @@ const LANE_HOST_FLAG: &str = "--oxc-tsrx-js-plugin-lane-host";
 /// compiled while the package briefly shipped authored `src/` JavaScript would
 /// otherwise fail to find a current package's lane host, and a current binary would
 /// otherwise fail to find that older package's. Both directions resolve here instead.
-const LANE_HOST_PATHS: [&str; 4] = [
+const LANE_HOST_PATHS: [&str; 6] = [
+    "node_modules/@tsrx/oxc/dist/lint-js-plugins.js",
+    "node_modules/@tsrx/oxc/src/lint-js-plugins.js",
     "node_modules/oxc-tsrx/dist/lint-js-plugins.js",
     "node_modules/oxc-tsrx/src/lint-js-plugins.js",
     "packages/toolchain/dist/lint-js-plugins.js",
@@ -565,7 +567,7 @@ impl JsPluginLane {
     fn locate(root: &Path) -> Result<Self, String> {
         let script = locate_lane_host_script(root).ok_or_else(|| {
             format!(
-                "unable to find {}. Install `oxc-tsrx` in this project, or set OXC_TSRX_JS_PLUGIN_LANE to the file",
+                "unable to find {}. Install `@tsrx/oxc` in this project, or set OXC_TSRX_JS_PLUGIN_LANE to the file",
                 LANE_HOST_PATHS[0]
             )
         })?;

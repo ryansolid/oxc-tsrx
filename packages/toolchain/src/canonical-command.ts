@@ -87,12 +87,12 @@ export async function decideCanonicalCommand(command, options: any = {}) {
     projectRoot = await findProjectRoot(cwd);
     manifest = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
   } catch {
-    return { command, owner: "oxc-tsrx", reason: "no-project-manifest", projectRoot: null };
+    return { command, owner: "@tsrx/oxc", reason: "no-project-manifest", projectRoot: null };
   }
 
   const field = declaresDirectly(manifest, command);
   if (field === null) {
-    return { command, owner: "oxc-tsrx", reason: "not-directly-declared", projectRoot };
+    return { command, owner: "@tsrx/oxc", reason: "not-directly-declared", projectRoot };
   }
 
   let manifestPath;
@@ -114,7 +114,7 @@ export async function decideCanonicalCommand(command, options: any = {}) {
     // Delegating would re-enter this launcher without bound.
     return {
       command,
-      owner: "oxc-tsrx",
+      owner: "@tsrx/oxc",
       reason: "compatibility-facade",
       projectRoot,
       officialRoot: dirname(manifestPath),

@@ -27,6 +27,12 @@ pub(super) fn reconstruct_lazy_patterns(
     for lazy in overlay.parser_lazy_patterns {
         let pattern = find_pattern(tape, lazy.pattern_start, segments, patterns)?;
         let declarator = declarator_for_pattern(tape, pattern, parents)?;
+        if lazy.standalone && pattern_contains_assignment_default(tape, pattern, parents)? {
+            return Err(TsrxParseError::AuthoredGrammar(
+                "standalone lazy assignment defaults are not supported by the JavaScript TSRX parser"
+                    .into(),
+            ));
+        }
 
         if tape.field_index(pattern, "lazy").is_some() {
             return Err(TsrxParseError::Unsupported("projected lazy pattern already has metadata"));
@@ -69,6 +75,30 @@ pub(super) fn reconstruct_lazy_patterns(
         }
     }
     Ok(())
+}
+
+fn pattern_contains_assignment_default(
+    tape: &FlatTape,
+    pattern: RecordIndex,
+    parents: &ParentIndex,
+) -> Result<bool, TsrxParseError> {
+    for raw in 0..tape.object_count() {
+        let object = RecordIndex::new(
+            u32::try_from(raw)
+                .map_err(|_| TsrxParseError::Unsupported("object index exceeds 4 GiB"))?,
+        );
+        if !has_type(tape, object, r#""AssignmentPattern""#) {
+            continue;
+        }
+        let mut child = ValueRef::object(object);
+        while let Some(parent) = parents.parent_container(child) {
+            if parent.as_object() == Some(pattern) {
+                return Ok(true);
+            }
+            child = parent;
+        }
+    }
+    Ok(false)
 }
 
 fn reconstruct_standalone_assignment(
