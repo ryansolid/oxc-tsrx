@@ -200,6 +200,47 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # ---------------------------------------------------------------------
+      # Second publication target: https://oxc.tsrx.dev, where the site owns the
+      # whole domain and therefore sits at the root instead of under /oxc-tsrx.
+      #
+      # Absolute URLs (canonical, og:image, sitemap) and every in-page link are
+      # baked in at build time from docs/site.config.mjs, so this cannot reuse
+      # the artifact above -- it is a second build with a different origin and
+      # base. It runs in this job rather than a job of its own so it reuses the
+      # WASM artifact already on this runner; it costs one extra `docs:build`.
+      #
+      # Everything below is inert until someone with tsrx.dev access creates the
+      # repository variables. Until then these steps skip and CI is unchanged.
+      # See docs/releasing/site-oxc-tsrx-dev.md.
+      # ---------------------------------------------------------------------
+      - name: Build the oxc.tsrx.dev variant of the site
+        if: vars.TSRX_VERCEL_ORG_ID != '' && vars.TSRX_VERCEL_PROJECT_ID != ''
+        env:
+          SITE_ORIGIN: https://oxc.tsrx.dev
+          SITE_BASE: /
+          # docs/build.mjs only accepts a custom output directory that is an
+          # empty oxc-tsrx-* directory under the system temp root.
+          OXC_TSRX_DOCS_OUT_DIR: /tmp/oxc-tsrx-tsrx-dev
+          OXC_TSRX_REQUIRE_WASM: '1'
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/oxc-tsrx-tsrx-dev
+          pnpm run docs:build
+          # The Guessless docs fetched above are static bytes with no base-path
+          # dependency, so the copy already in docs/dist is reused rather than
+          # fetched a second time.
+          cp -r docs/dist/guessless /tmp/oxc-tsrx-tsrx-dev/guessless
+
+      - name: Upload the oxc.tsrx.dev static artifact
+        if: vars.TSRX_VERCEL_ORG_ID != '' && vars.TSRX_VERCEL_PROJECT_ID != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: oxc-tsrx-docs-tsrx-dev-${{ github.sha }}
+          path: /tmp/oxc-tsrx-tsrx-dev
+          if-no-files-found: error
+          retention-days: 14
+
   # Deliberately a separate job. The build above runs the whole dependency
   # graph -- pnpm postinstalls, 205 crates of cargo, every docs script -- and
   # none of that is ever in the same runner as the deploy credential. This job
@@ -322,3 +363,106 @@ jobs:
           done
           echo "::error::Could not verify Guessless via custom domain after 5 attempts"
           exit 1
+
+  # The oxc.tsrx.dev publication, deliberately independent of the deploy job
+  # above: a different Vercel project, a different token, a different artifact,
+  # and no shared failure. Neither can block or break the other.
+  #
+  # It is driven entirely by repository configuration, so whoever holds tsrx.dev
+  # and the TSRX Vercel team can turn it on without touching this file:
+  #
+  #   vars.TSRX_VERCEL_ORG_ID       repository variable
+  #   vars.TSRX_VERCEL_PROJECT_ID   repository variable
+  #   secrets.TSRX_VERCEL_TOKEN     repository (or tsrx-dev environment) secret
+  #
+  # Secrets cannot be read in an `if:`, so the two variables are what gate this
+  # job. With them unset the job is skipped, not failed, and the artifact it
+  # would consume is never built either. Full instructions:
+  # docs/releasing/site-oxc-tsrx-dev.md
+  deploy-tsrx-dev:
+    name: Deploy oxc.tsrx.dev
+    needs: build
+    if: >-
+      github.ref_name == 'main' &&
+      vars.TSRX_VERCEL_ORG_ID != '' &&
+      vars.TSRX_VERCEL_PROJECT_ID != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: {}
+    environment:
+      name: tsrx-dev
+      url: https://oxc.tsrx.dev
+    env:
+      VERCEL_ORG_ID: ${{ vars.TSRX_VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.TSRX_VERCEL_PROJECT_ID }}
+    steps:
+      - name: Download the root-base artifact the build job produced
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: oxc-tsrx-docs-tsrx-dev-${{ github.sha }}
+          path: dist
+
+      - name: Ship that artifact to the TSRX Vercel project
+        id: ship
+        env:
+          VERCEL_TOKEN: ${{ secrets.TSRX_VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VERCEL_TOKEN}" ]; then
+            echo "::error::TSRX_VERCEL_TOKEN is not set, but TSRX_VERCEL_ORG_ID and TSRX_VERCEL_PROJECT_ID are. See docs/releasing/site-oxc-tsrx-dev.md."
+            exit 1
+          fi
+          url="$(npx --yes vercel@57.0.0 deploy \
+            --cwd dist \
+            --prod \
+            --yes \
+            --token "${VERCEL_TOKEN}")"
+          echo "Deployed ${url}"
+          echo "url=${url}" >> "${GITHUB_OUTPUT}"
+
+      - name: Prove that deployment is serving this build
+        env:
+          DEPLOYMENT_URL: ${{ steps.ship.outputs.url }}
+        run: |
+          set -euo pipefail
+          # Verified against the deployment URL the CLI just printed, not
+          # against oxc.tsrx.dev: this must prove the bytes, and a custom domain
+          # can be mid-DNS-propagation or absent entirely on the first run.
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "${DEPLOYMENT_URL}/demo-capabilities.json" -o capabilities.json; then
+              break
+            fi
+            echo "attempt ${attempt} could not read the live capabilities, retrying"
+            sleep 5
+          done
+          node -e '
+            const live = require("./capabilities.json")
+            if (!live.ok || !live.wasm || live.mode !== "wasm") {
+              throw new Error(`deployment is not serving the WebAssembly engine: ${JSON.stringify(live)}`)
+            }
+          '
+          # demo-capabilities.json is byte-identical across builds, so hash the
+          # page itself: that only matches if this run's artifact is live. The
+          # site is at the deploy root here, so index.html is at the root.
+          curl -fsS "${DEPLOYMENT_URL}" -o live-index.html
+          live="$(shasum -a 256 < live-index.html | cut -d" " -f1)"
+          built="$(shasum -a 256 < dist/index.html | cut -d" " -f1)"
+          if [ "${live}" != "${built}" ]; then
+            echo "::error::deployment serves index.html ${live}, this run built ${built}"
+            exit 1
+          fi
+          echo "the deployment is serving this run's build (${built})"
+
+      - name: Report whether oxc.tsrx.dev resolves to it
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          # Informational only. The deploy is already proven above; whether the
+          # custom domain points at this project is a DNS fact that no push can
+          # fix, so it must never turn a good deploy into a red run.
+          status="$(curl -fsS -o /dev/null -w '%{http_code}' https://oxc.tsrx.dev || echo 000)"
+          if [ "${status}" = "200" ]; then
+            echo "::notice::https://oxc.tsrx.dev is live"
+          else
+            echo "::warning::https://oxc.tsrx.dev returned ${status}; add the domain and DNS record per docs/releasing/site-oxc-tsrx-dev.md"
+          fi
