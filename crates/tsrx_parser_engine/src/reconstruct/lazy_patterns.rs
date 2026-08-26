@@ -1,7 +1,7 @@
 //! Lazy destructuring patterns, projected without `&` and restored with `lazy: true`.
 
 use tsrx_syntax::{OverlayView, ProjectionSegment};
-use tsrx_tape_schema::{FlatTape, RecordIndex};
+use tsrx_tape_schema::{FlatTape, RecordIndex, ValueRef};
 
 use crate::{
     TsrxParseError,
@@ -10,7 +10,8 @@ use crate::{
 };
 
 use super::{
-    access::{has_type, object_field, scalar_u32},
+    access::{field_value, has_type, list_field, object_field, scalar_u32},
+    edits::append_node_head,
     objects::find_unique_start,
     spans::{AuthoredStart, record_authored_span},
 };
@@ -41,16 +42,88 @@ pub(super) fn reconstruct_lazy_patterns(
             tsrx_syntax::ByteSpan::new(lazy.pattern_start, authored_end),
         );
         if let Some(declarator) = declarator {
-            let declarator_end = scalar_u32(tape, declarator, "end")?;
-            let declarator_end = map_endpoint(segments, declarator_end, false)
-                .ok_or(TsrxParseError::Unsupported("lazy declarator end is unmapped"))?;
-            record_authored_span(
-                starts,
-                declarator,
-                tsrx_syntax::ByteSpan::new(lazy.ampersand, declarator_end),
-            );
+            if lazy.standalone {
+                reconstruct_standalone_assignment(
+                    tape,
+                    pattern,
+                    declarator,
+                    lazy.ampersand,
+                    segments,
+                    parents,
+                    starts,
+                )?;
+            } else {
+                let declarator_end = scalar_u32(tape, declarator, "end")?;
+                let declarator_end = map_endpoint(segments, declarator_end, false)
+                    .ok_or(TsrxParseError::Unsupported("lazy declarator end is unmapped"))?;
+                record_authored_span(
+                    starts,
+                    declarator,
+                    tsrx_syntax::ByteSpan::new(lazy.ampersand, declarator_end),
+                );
+            }
+        } else if lazy.standalone {
+            return Err(TsrxParseError::Unsupported(
+                "standalone lazy pattern is not a variable-shaped projection",
+            ));
         }
     }
+    Ok(())
+}
+
+fn reconstruct_standalone_assignment(
+    tape: &mut FlatTape,
+    pattern: RecordIndex,
+    declarator: RecordIndex,
+    authored_start: u32,
+    segments: &[ProjectionSegment],
+    parents: &ParentIndex,
+    starts: &mut Vec<AuthoredStart>,
+) -> Result<(), TsrxParseError> {
+    let declarations =
+        parents.parent_container(ValueRef::object(declarator)).and_then(ValueRef::as_list).ok_or(
+            TsrxParseError::Unsupported("standalone lazy declarator has no declarations list"),
+        )?;
+    let declaration = parents
+        .parent_container(ValueRef::list(declarations))
+        .and_then(ValueRef::as_object)
+        .ok_or(TsrxParseError::Unsupported(
+            "standalone lazy declarator has no declaration parent",
+        ))?;
+    if !has_type(tape, declaration, r#""VariableDeclaration""#)
+        || list_field(tape, declaration, "declarations")? != declarations
+    {
+        return Err(TsrxParseError::Unsupported(
+            "standalone lazy pattern projection is not a variable declaration",
+        ));
+    }
+    let mut values = tape.values(declarations);
+    if values.next().and_then(ValueRef::as_object) != Some(declarator) || values.next().is_some() {
+        return Err(TsrxParseError::Unsupported(
+            "standalone lazy assignment projection has multiple declarators",
+        ));
+    }
+
+    let right = field_value(tape, declarator, "init")?;
+    let expression_end = map_endpoint(segments, scalar_u32(tape, declarator, "end")?, false)
+        .ok_or(TsrxParseError::Unsupported("standalone lazy assignment end is unmapped"))?;
+    let statement_end = map_endpoint(segments, scalar_u32(tape, declaration, "end")?, false)
+        .ok_or(TsrxParseError::Unsupported("standalone lazy statement end is unmapped"))?;
+    let expression_span = tsrx_syntax::ByteSpan::new(authored_start, expression_end);
+    let statement_span = tsrx_syntax::ByteSpan::new(authored_start, statement_end);
+
+    tape.clear_fields(declarator)?;
+    append_node_head(tape, declarator, r#""AssignmentExpression""#, expression_span)?;
+    let operator = tape.push_scalar(r#""=""#)?;
+    tape.append_field(declarator, "operator", operator)?;
+    tape.append_field(declarator, "left", ValueRef::object(pattern))?;
+    tape.append_field(declarator, "right", right)?;
+    record_authored_span(starts, declarator, expression_span);
+
+    tape.clear_fields(declaration)?;
+    append_node_head(tape, declaration, r#""ExpressionStatement""#, statement_span)?;
+    tape.append_field(declaration, "expression", ValueRef::object(declarator))?;
+    record_authored_span(starts, declaration, statement_span);
     Ok(())
 }
 

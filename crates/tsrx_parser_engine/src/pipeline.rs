@@ -49,6 +49,7 @@ pub(super) fn parse_tsrx_utf8_source<W: Utf16WorkObserver>(
     if overlay_view.tokens.is_empty()
         && overlay_view.dynamic_tags.is_empty()
         && overlay_view.style_blocks.is_empty()
+        && overlay_view.parser_lazy_patterns.is_empty()
     {
         return parse_direct(
             source,
