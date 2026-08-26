@@ -856,15 +856,15 @@ async function inspectLinterShim(modules, providerRoot) {
     if (!info) continue;
     const target = await realPathOrNull(shim);
     if (target && within(providerReal, target)) {
-      return { path: shim, target, owner: PROVIDER, resolvedBy: "symlink" };
+      return { path: shim, target, owner: PACKAGE_NAME, resolvedBy: "symlink" };
     }
     if (target && facadeIsOurs && facadeReal && within(facadeReal, target)) {
-      return { path: shim, target, owner: PROVIDER, resolvedBy: "compatibility-facade" };
+      return { path: shim, target, owner: PACKAGE_NAME, resolvedBy: "compatibility-facade" };
     }
     if (info.isFile() && !info.isSymbolicLink()) {
       const source = await readFile(shim, "utf8").catch(() => "");
       if (PROVIDER_LAUNCHER_TEXT.test(source)) {
-        return { path: shim, target: target ?? null, owner: PROVIDER, resolvedBy: "shim-text" };
+        return { path: shim, target: target ?? null, owner: PACKAGE_NAME, resolvedBy: "shim-text" };
       }
       return { path: shim, target: target ?? null, owner: "other", resolvedBy: "shim-text" };
     }
@@ -1330,7 +1330,7 @@ async function inspectEditorSlot(projectRoot, providerRoot, modules, options: an
   // whole answer, and `unnecessary` has to be earned by asking rather than
   // assumed from `.bin/oxlint` being ours in this one folder.
   const unwritten = async () => {
-    if (shim.owner !== PROVIDER) return reported("missing", null);
+    if (shim.owner !== PACKAGE_NAME) return reported("missing", null);
     const reach = await judgeAutoDetection({
       settingsRoot,
       projectRoot,

@@ -536,7 +536,7 @@ test(
         assert.deepEqual(Object.keys(index.extensions).sort(), [".demo", ".tsrx"]);
         assert.deepEqual(
           index.providers.map(({ name }) => name).sort(),
-          ["demo-language-provider", "@tsrx/oxc"],
+          ["@tsrx/oxc", "demo-language-provider"],
         );
         assert.equal(index.extensions[".demo"].package, "demo-language-provider");
         assert.deepEqual(
@@ -607,7 +607,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
   const fixture = async (name, dependencies, packages) => {
     const directory = join(temporary, name);
     await writePackage(directory, { name, private: true, type: "module", dependencies });
-    await mkdir(join(directory, "node_modules"), { recursive: true });
+    await mkdir(join(directory, "node_modules/@tsrx"), { recursive: true });
     // A junction is the Windows form that needs no elevated privilege; a plain
     // directory symlink there requires Developer Mode or an admin token, which
     // would make this fixture fail for a reason that is not about discovery.
@@ -642,7 +642,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
     assert.equal(text.status, 0, text.stderr);
     assert.match(text.stdout, /@tsrx\/oxc@0\.6\.0 \(provider tsrx, protocol 1\)/u);
     assert.match(text.stdout, /language tsrx: \.tsrx/u);
-    assert.match(text.stdout, /routed extensions: \.tsrx -> oxc-tsrx/u);
+    assert.match(text.stdout, /routed extensions: \.tsrx -> @tsrx\/oxc/u);
   });
 
   await context.test("two providers claiming one extension fail loudly", async () => {

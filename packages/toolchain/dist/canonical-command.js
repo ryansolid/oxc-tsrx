@@ -78,7 +78,7 @@ async function decideCanonicalCommand(command, options = {}) {
 	} catch {
 		return {
 			command,
-			owner: "oxc-tsrx",
+			owner: "@tsrx/oxc",
 			reason: "no-project-manifest",
 			projectRoot: null
 		};
@@ -86,7 +86,7 @@ async function decideCanonicalCommand(command, options = {}) {
 	const field = declaresDirectly(manifest, command);
 	if (field === null) return {
 		command,
-		owner: "oxc-tsrx",
+		owner: "@tsrx/oxc",
 		reason: "not-directly-declared",
 		projectRoot
 	};
@@ -99,7 +99,7 @@ async function decideCanonicalCommand(command, options = {}) {
 	const officialManifest = JSON.parse(await readFile(manifestPath, "utf8"));
 	if (isCompatibilityFacade(officialManifest)) return {
 		command,
-		owner: "oxc-tsrx",
+		owner: "@tsrx/oxc",
 		reason: "compatibility-facade",
 		projectRoot,
 		officialRoot: dirname(manifestPath)

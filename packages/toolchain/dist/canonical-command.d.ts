@@ -2,7 +2,7 @@ export type OxcTsrxCanonicalCommand = "oxlint" | "oxfmt";
 
 export interface OxcTsrxCanonicalDecisionKept {
   readonly command: OxcTsrxCanonicalCommand;
-  readonly owner: "oxc-tsrx";
+  readonly owner: "@tsrx/oxc";
   readonly reason: "no-project-manifest" | "not-directly-declared" | "compatibility-facade";
   readonly projectRoot: string | null;
   readonly officialRoot?: string;

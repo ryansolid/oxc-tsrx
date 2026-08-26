@@ -731,13 +731,13 @@ async function inspectLinterShim(modules, providerRoot) {
 		if (target && within(providerReal, target)) return {
 			path: shim,
 			target,
-			owner: PROVIDER,
+			owner: PACKAGE_NAME,
 			resolvedBy: "symlink"
 		};
 		if (target && facadeIsOurs && facadeReal && within(facadeReal, target)) return {
 			path: shim,
 			target,
-			owner: PROVIDER,
+			owner: PACKAGE_NAME,
 			resolvedBy: "compatibility-facade"
 		};
 		if (info.isFile() && !info.isSymbolicLink()) {
@@ -745,7 +745,7 @@ async function inspectLinterShim(modules, providerRoot) {
 			if (PROVIDER_LAUNCHER_TEXT.test(source)) return {
 				path: shim,
 				target: target ?? null,
-				owner: PROVIDER,
+				owner: PACKAGE_NAME,
 				resolvedBy: "shim-text"
 			};
 			return {
@@ -1070,7 +1070,7 @@ async function inspectEditorSlot(projectRoot, providerRoot, modules, options = {
 		};
 	};
 	const unwritten = async () => {
-		if (shim.owner !== PROVIDER) return reported("missing", null);
+		if (shim.owner !== PACKAGE_NAME) return reported("missing", null);
 		const reach = await judgeAutoDetection({
 			settingsRoot,
 			projectRoot,
