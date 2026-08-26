@@ -18,7 +18,7 @@ highlighted field name in the examples to see how it is handled.
 
 ## Lint configuration
 
-`oxc-tsrx` searches upward from the working directory for one `.oxlintrc.json`
+`@tsrx/oxc` searches upward from the working directory for one `.oxlintrc.json`
 or `.oxlintrc.jsonc`, or takes an explicit JSON/JSONC file with `--config` or
 `-c`. That one config covers every file in the run, and it is read once. A
 separate config per directory is [not supported yet](#what-is-refused).
@@ -114,7 +114,7 @@ and one type-checker process covers the whole run.
 #### Troubleshooting tsgolint discovery
 
 Type-aware runs need exactly `oxlint-tsgolint` 0.24.0, pinned through
-`oxc-tsrx`'s lint implementation dependency. When `--type-aware` or
+`@tsrx/oxc`'s lint implementation dependency. When `--type-aware` or
 `--type-check` fails to start:
 
 - Native discovery checks the project installation and `PATH`.
@@ -248,7 +248,7 @@ Formatting refuses:
 
 The standalone binaries are deliberately small: they take named files and print
 JSON, and nothing else. Directories, globs, the ordinary report format, and
-handing your JS and TS files to official OXC all come from the `oxc-tsrx` npm
+handing your JS and TS files to official OXC all come from the `@tsrx/oxc` npm
 commands.
 
 Two things are ignored rather than refused, because neither can change your

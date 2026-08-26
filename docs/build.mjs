@@ -2086,7 +2086,7 @@ async function pipelineHtml(kind) {
 const PAGE_STATUS = {
   proposal: {
     label: 'Proposal',
-    text: 'Nothing on this page is required to use oxc-tsrx. It is a design written down here and implemented in this repository only: no released OXC, Oxlint, Oxfmt, Vite+, or VS Code build reads it, and nothing has been submitted upstream.',
+    text: 'Nothing on this page is required to use @tsrx/oxc. It is a design written down here and implemented in this repository only: no released OXC, Oxlint, Oxfmt, Vite+, or VS Code build reads it, and nothing has been submitted upstream.',
   },
 }
 
@@ -2230,7 +2230,7 @@ async function renderHomePage({ description }) {
     <p class="home-upstream-link"><a href="${withBase('/architecture/upstreaming-to-oxc')}">Read the upstreaming review map →</a></p>
   </section>
   <footer class="home-footer">
-    <p class="footer-links"><a href="${config.repository}" target="_blank" rel="noreferrer">GitHub<span class="visually-hidden"> (opens in new tab)</span></a> · <a href="https://www.npmjs.com/package/oxc-tsrx" target="_blank" rel="noreferrer">oxc-tsrx<span class="visually-hidden"> (opens in new tab)</span></a></p>
+    <p class="footer-links"><a href="${config.repository}" target="_blank" rel="noreferrer">GitHub<span class="visually-hidden"> (opens in new tab)</span></a> · <a href="https://www.npmjs.com/package/@tsrx/oxc" target="_blank" rel="noreferrer">@tsrx/oxc<span class="visually-hidden"> (opens in new tab)</span></a></p>
     ${footerBadge}
     <p class="footer-disclaimer">${config.footer.disclaimer}</p>
   </footer>

@@ -1,15 +1,17 @@
 <p align="center">
-  <a href="https://compiled.run/oxc-tsrx"><img alt="OXC for TSRX" width="600" src="https://raw.githubusercontent.com/markless-dev/oxc-tsrx/HEAD/.github/assets/readme-hero.png"></a>
+  <a href="https://compiled.run/oxc-tsrx"><img alt="OXC for TSRX" width="600" src="https://raw.githubusercontent.com/tsrx-org/oxc/HEAD/.github/assets/readme-hero.png"></a>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oxc-tsrx"><img alt="npm version" src="https://img.shields.io/npm/v/oxc-tsrx.svg"></a>
-  <a href="https://nodejs.org/en/about/previous-releases"><img alt="supported Node.js versions" src="https://img.shields.io/node/v/oxc-tsrx.svg"></a>
-  <a href="https://github.com/markless-dev/oxc-tsrx/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/markless-dev/oxc-tsrx/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/npm/l/oxc-tsrx.svg"></a>
+  <a href="https://www.npmjs.com/package/@tsrx/oxc"><img alt="npm version" src="https://img.shields.io/npm/v/@tsrx/oxc"></a>
+  <a href="https://nodejs.org/en/about/previous-releases"><img alt="supported Node.js versions" src="https://img.shields.io/node/v/@tsrx/oxc"></a>
+  <a href="https://github.com/tsrx-org/oxc/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/tsrx-org/oxc/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://discord.gg/HCYpT5QHQR"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-7289da?logo=discord&logoColor=white"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/npm/l/@tsrx/oxc"></a>
 </p>
 
-OXC for TSRX gives you three tools for `.tsrx` files:
+The official OXC integration for TSRX. It gives you three tools for `.tsrx`
+files:
 
 - a **linter**, which warns you about likely mistakes before you run your code
 - a **formatter**, which fixes spacing and punctuation so every file matches
@@ -20,15 +22,15 @@ and `@for` for showing something only sometimes, or once per item in a list.
 [OXC](https://oxc.rs) is a set of fast tools for JavaScript and TypeScript,
 written in Rust. This package teaches them to read `.tsrx` too.
 
-_OXC for TSRX is an independent community project. It is not affiliated with,
-endorsed by, or a product of VoidZero or the OXC team._
+_OXC for TSRX is the official OXC integration maintained by the TSRX project. It
+is not affiliated with, endorsed by, or a product of VoidZero or the OXC team._
 
 [**Docs**](https://compiled.run/oxc-tsrx) &nbsp;·&nbsp; [**Getting started**](https://compiled.run/oxc-tsrx/guide/getting-started) &nbsp;·&nbsp; [**Playground**](https://compiled.run/oxc-tsrx/playground)
 
 ## Install
 
 ```sh
-npm install --save-dev oxc-tsrx@latest
+npm install --save-dev @tsrx/oxc@latest
 ```
 
 That is the whole setup, for the command line and for your editor. There is no
@@ -82,7 +84,7 @@ as they would without this package ([the numbers](docs/acceptance/matrix.md)).
 ## Reading a file yourself
 
 ```js
-import { parseSync } from "oxc-tsrx/parser";
+import { parseSync } from "@tsrx/oxc/parser";
 ```
 
 The parser hands back the structure of your file, so you can build your own
@@ -130,9 +132,11 @@ settings.
 ## Contributing
 
 Issues and pull requests are welcome at [the issue
-tracker](https://github.com/markless-dev/oxc-tsrx/issues). The source layout and
+tracker](https://github.com/tsrx-org/oxc/issues). The source layout and
 the OXC boundary are described in [the Rust and OXC
 core](https://compiled.run/oxc-tsrx/architecture/rust-oxc-core).
+
+Join the [TSRX Discord community](https://discord.gg/HCYpT5QHQR).
 
 ## License
 

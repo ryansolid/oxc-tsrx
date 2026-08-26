@@ -1,6 +1,6 @@
 ---
 title: Formatting
-description: How oxc-tsrx formats .tsrx files with real Oxfmt layout and converts the result back to TSRX.
+description: How @tsrx/oxc formats .tsrx files with real Oxfmt layout and converts the result back to TSRX.
 ---
 
 # Formatting
@@ -36,7 +36,7 @@ export function Rows({ items }: { items: Item[] }) @{
 Both files are committed fixtures, and the test suite formats the first one and
 compares it against the second on every run, so this is real output rather than
 a hand-written example. You can read them in
-[tests/fixtures/control](https://github.com/markless-dev/oxc-tsrx/tree/main/tests/fixtures/control).
+[tests/fixtures/control](https://github.com/tsrx-org/oxc/tree/main/tests/fixtures/control).
 
 ## How a format run works
 

@@ -5,13 +5,13 @@ description: Native formatting, lint diagnostics, and validated quick fixes for 
 
 # Editor integration
 
-Install `oxc-tsrx` in your project and the official OXC extension in your
+Install `@tsrx/oxc` in your project and the official OXC extension in your
 editor. There is no TSRX-specific extension to add and no fork to install, and
 outside Vite+ there is no setup command either.
 
 <!-- extension:oxc -->
 
-The extension starts your project's `oxlint --lsp`, and `oxc-tsrx` uses that one
+The extension starts your project's `oxlint --lsp`, and `@tsrx/oxc` uses that one
 process as a narrow multiplexer: `.tsrx` traffic goes to its native server, and
 ordinary JavaScript and TypeScript keep going to official Oxlint. [Your own
 Oxlint JavaScript rules](#your-own-javascript-rules-in-the-editor) show up as
@@ -35,7 +35,7 @@ the two run side by side:
 ## Setup
 
 1. Install the official OXC extension, `oxc.oxc-vscode`.
-2. Add `oxc-tsrx` to the project.
+2. Add `@tsrx/oxc` to the project.
 3. Open a JS, TS, or JSON file once, so the extension starts.
 4. Open a `.tsrx` file. Diagnostics, formatting, and quick fixes come through
    the official client.
@@ -178,7 +178,7 @@ tree had no `node_modules/.bin/oxlint` entry at all. Either way you would get no
 
 ```json
 {
-  "oxc.path.oxlint": "node_modules/oxc-tsrx/bin/oxlint"
+  "oxc.path.oxlint": "node_modules/@tsrx/oxc/bin/oxlint"
 }
 ```
 
@@ -223,7 +223,7 @@ this key exists to end.
 ## Reproducible proof
 
 A clean Extension Host run installs untouched local release tarballs into an
-empty consumer whose only TSRX dependency is `oxc-tsrx`, loads the released
+empty consumer whose only TSRX dependency is `@tsrx/oxc`, loads the released
 official extension with no second TSRX client installed, and proves canonical
 TypeScript diagnostics, native TSRX diagnostics, an unsaved buffer update,
 formatting, and the validated `no-var` quick fix.

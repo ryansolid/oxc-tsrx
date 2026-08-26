@@ -6,14 +6,14 @@ export default {
   origin: 'https://compiled.run',
   // Root-absolute base path the site is served under, with trailing slash.
   base: '/oxc-tsrx/',
-  repository: 'https://github.com/compiled-run/oxc-tsrx',
+  repository: 'https://github.com/tsrx-org/oxc',
   nav: [
     { text: 'Guide', link: '/guide/introduction' },
     { text: 'Playground', link: '/playground' },
     { text: 'Integrations', link: '/integrations/configuration' },
     { text: 'Architecture', link: '/architecture/rust-oxc-core' },
     { text: 'Reference', link: '/reference/cli' },
-    { text: 'GitHub', link: 'https://github.com/compiled-run/oxc-tsrx' },
+    { text: 'GitHub', link: 'https://github.com/tsrx-org/oxc' },
   ],
   sidebar: [
     {
@@ -103,7 +103,7 @@ export default {
       icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13.5" rx="2"/><path d="M8.5 21h7M12 17v4"/><path d="M7 11c.9-1.3 1.8-1.3 2.7 0s1.8 1.3 2.6 0 1.8-1.3 2.7 0"/></svg>',
       title: 'Your editor already knows',
       details:
-        'The released official OXC VS Code extension picks up the project-local <code>oxlint</code> that <code>oxc-tsrx</code> installs, then gets live <code>.tsrx</code> diagnostics, formatting, and validated quick fixes.',
+        'The released official OXC VS Code extension picks up the project-local <code>oxlint</code> that <code>@tsrx/oxc</code> installs, then gets live <code>.tsrx</code> diagnostics, formatting, and validated quick fixes.',
     },
   ],
   footer: {

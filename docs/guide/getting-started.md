@@ -1,11 +1,11 @@
 ---
 title: Getting Started
-description: Install oxc-tsrx, then parse, lint, format, and edit your first TSRX file.
+description: Install @tsrx/oxc, then parse, lint, format, and edit your first TSRX file.
 ---
 
 # Getting Started
 
-Everything ships in one package, `oxc-tsrx`. It gives you the `oxlint` and
+Everything ships in one package, `@tsrx/oxc`. It gives you the `oxlint` and
 `oxfmt` commands you already know, now handling `.tsrx` files, plus a parser
 API, a language server, and support for your own
 [custom JavaScript lint plugins](/integrations/custom-js-plugins).
@@ -23,7 +23,7 @@ dependency:
 
 <!-- pm-install -->
 ```sh
-npm install --save-dev oxc-tsrx@latest
+npm install --save-dev @tsrx/oxc@latest
 ```
 
 That is the whole setup. There is no config file and no ignore file to write.
@@ -46,13 +46,13 @@ This is the complete list of things you have to run to lint and format `.tsrx`.
 
 | Where you use it | Steps | What you run |
 | --- | --- | --- |
-| Command line (`oxlint`, `oxfmt`) | 1 | `npm install --save-dev oxc-tsrx@latest` |
+| Command line (`oxlint`, `oxfmt`) | 1 | `npm install --save-dev @tsrx/oxc@latest` |
 | Editor, through the released official OXC extension | 1 | the same install, and nothing else |
 | [Vite+](#try-it-with-vite) (`vp lint`, `vp fmt`) | 2 | the same install, then `oxc-tsrx setup` |
 
 ## Try it with Vite+
 
-Vite+ finds its linter and formatter by package name, so `oxc-tsrx` needs one
+Vite+ finds its linter and formatter by package name, so `@tsrx/oxc` needs one
 extra command to be found. [Walkthrough (Vite+)](/integrations/vite-plus) is the
 whole path from an empty directory to a `.tsrx` file linted by a rule you wrote,
 with your editor understanding it, one step at a time.
@@ -64,7 +64,7 @@ both, and the walkthrough above is the rest of the story:
 
 <!-- pm-install -->
 ```sh
-npm install --save-dev vite-plus oxc-tsrx@latest
+npm install --save-dev vite-plus @tsrx/oxc@latest
 npx oxc-tsrx setup
 ```
 
@@ -72,7 +72,7 @@ If the project is *already* on Vite+, use `vp install -D` and `vp exec` instead.
 
 Vite+ finds its linter and formatter by package name, searching `node_modules`
 for packages literally called `oxlint` and `oxfmt`. A *command* named `oxlint`,
-which is what installing `oxc-tsrx` gives you, is not enough. `setup` puts this
+which is what installing `@tsrx/oxc` gives you, is not enough. `setup` puts this
 package in those two slots. It never edits your `package.json`, and
 `oxc-tsrx remove` undoes it.
 
@@ -213,9 +213,9 @@ shapes. Pick what you saw rather than reading all of them.
 | `refusing to replace unowned package slot(s)` | An install wiped what `setup` wrote inside `node_modules`, and `setup` will not overwrite what it no longer owns. Rebuild the tree: `rm -rf node_modules && vp install && vp exec oxc-tsrx setup`. Installing on top of the old tree is not enough. |
 | Editor misses `.tsrx`, `vp lint` sees it | Your editor needs `oxc.path.oxlint` in `.vscode/settings.json`; without it the OXC extension finds Vite+'s own `oxlint` (or, under npm, nothing at all), and neither knows `.tsrx`. `setup` writes that one line only when the extension would otherwise miss this package, and never replaces a value you set yourself. The key is read only when the folder you **open** in VS Code holds that `.vscode/settings.json`; `setup --workspace-root <directory>` writes to a root above your project when that is the folder you open. [The rest of the rules](/integrations/editor#when-the-key-does-not-take-effect). |
 | `setup` listed things it would not install | Not a failure. Highlighting and types for `.tsrx` belong to the TSRX toolchain, so `setup` names what is missing and stops: `@tsrx/typescript-plugin`, a framework binding, that plugin declared in the `tsconfig.json` owning your source (in a scaffold that is `tsconfig.app.json`, not the root one), and TypeScript in the `>=5.9 <6` range the plugin asks for. `setup --write-tsconfig` will add that one declaration for you; the rest are yours to install. A current scaffold pins TypeScript 6, so everyone sees that last line. `vp lint` works either way. |
-| `vp lint` reports `.tsx` and skips `.tsrx` | Type-aware lint runs on `oxlint-tsgolint`, and this package works only with the version it was built for rather than guessing at the protocol. The last line names both versions. Add the one it names as a direct dev dependency in the same `vp install` as `oxc-tsrx`, before `setup`: on its own afterwards it clears the error and switches `.tsrx` linting off in the same step. |
+| `vp lint` reports `.tsx` and skips `.tsrx` | Type-aware lint runs on `oxlint-tsgolint`, and this package works only with the version it was built for rather than guessing at the protocol. The last line names both versions. Add the one it names as a direct dev dependency in the same `vp install` as `@tsrx/oxc`, before `setup`: on its own afterwards it clears the error and switches `.tsrx` linting off in the same step. |
 | A rule fires in one place but not the other | Vite+ moves any scaffolded `.oxlintrc.json` into the `lint` block of `vite.config.ts` and reads only that. Your editor still reads `.oxlintrc.json`. Write a rule you want in both places twice. |
-| Bare `oxlint` says `No files found to lint` | `node_modules/.bin/oxlint` is Vite+'s own (or absent under npm) and cannot see `.tsrx`; `setup` never rewrites `.bin`, it points your editor straight at `node_modules/oxc-tsrx/bin/oxlint` instead. Keep using `vp lint` and `vp fmt` anyway: they read `vite.config.ts` while the bare commands read `.oxlintrc.json`, and here those are not the same file. |
+| Bare `oxlint` says `No files found to lint` | `node_modules/.bin/oxlint` is Vite+'s own (or absent under npm) and cannot see `.tsrx`; `setup` never rewrites `.bin`, it points your editor straight at `node_modules/@tsrx/oxc/bin/oxlint` instead. Keep using `vp lint` and `vp fmt` anyway: they read `vite.config.ts` while the bare commands read `.oxlintrc.json`, and here those are not the same file. |
 
 `setup` is not going away: Vite+ resolves a package name, which a command name
 cannot satisfy, and no released Vite+ reads the `oxc.provider` block that would
@@ -233,8 +233,8 @@ If you would rather build the native binaries yourself, you need a stable
 Rust toolchain ([rustup](https://rustup.rs)):
 
 ```sh
-git clone https://github.com/markless-dev/oxc-tsrx.git
-cd oxc-tsrx
+git clone https://github.com/tsrx-org/oxc.git
+cd oxc
 cargo build --release --locked -p oxc_tsrx_cli --bins
 ```
 

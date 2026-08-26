@@ -9,9 +9,9 @@ description: What OXC for TSRX is, how it works in plain terms, and what it prom
 Rust: a parser, the `oxlint` linter, and the `oxfmt` formatter. It does the
 same jobs as ESLint and Prettier, just much faster.
 
-OXC for TSRX teaches those tools to read `.tsrx` files, so you can lint and
-format them like any other file in your project. The parser behind them is
-also available as a library, [`oxc-tsrx/parser`](/guide/parsing), for
+OXC for TSRX is the official OXC integration for TSRX: it teaches those tools
+to read `.tsrx` files, so you can lint and format them like any other file in your project. The parser behind them is
+also available as a library, [`@tsrx/oxc/parser`](/guide/parsing), for
 building your own tooling.
 
 ## The problem it solves
@@ -54,7 +54,7 @@ yourself.
   rules, `--type-check` adds full TypeScript diagnostics. The default lane
   starts zero type processes. See [Linting](/guide/linting).
 - ✏️ **Editor support.** The official OXC extension picks up the project-local
-  `oxlint` that `oxc-tsrx` installs, and your `.tsrx` files get live
+  `oxlint` that `@tsrx/oxc` installs, and your `.tsrx` files get live
   diagnostics, formatting, and quick fixes. Your `.ts` and `.tsx` files keep
   working exactly as before. See [Editor integration](/integrations/editor).
 - 🔗 **No fork.** Nothing is snapshotted and nothing is patched. Every OXC call
@@ -65,13 +65,13 @@ yourself.
 
 ## The commands
 
-Install `oxc-tsrx` and you get the familiar commands, now with TSRX support:
+Install `@tsrx/oxc` and you get the familiar commands, now with TSRX support:
 
 <!-- terminal-demo:introduction-commands -->
 
-Every command is the same native Rust binary, `oxc-tsrx`: the linter, the
-formatter, and the editor language server in one download, picked by
-subcommand. See [Getting Started](/guide/getting-started) to install it and the
+Every command is the same native Rust binary that `@tsrx/oxc` ships: the
+linter, the formatter, and the editor language server in one download, picked
+by subcommand. See [Getting Started](/guide/getting-started) to install it and the
 [CLI reference](/reference/cli) for every flag.
 
 ## What it deliberately is not

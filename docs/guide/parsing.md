@@ -1,11 +1,11 @@
 ---
 title: Parsing
-description: Parse .tsrx and ordinary JS/TS into a real AST with oxc-tsrx/parser, the oxc-parser style API with TSRX support.
+description: Parse .tsrx and ordinary JS/TS into a real AST with @tsrx/oxc/parser, the oxc-parser style API with TSRX support.
 ---
 
 # Parsing
 
-`oxc-tsrx/parser` is the parser behind the lint and format tools, exposed as a
+`@tsrx/oxc/parser` is the parser behind the lint and format tools, exposed as a
 library you can call yourself. It has the same API shape as
 [`oxc-parser`](https://www.npmjs.com/package/oxc-parser), OXC's official npm
 parser, and it handles `.tsrx` alongside ordinary `js`, `jsx`, `ts`, `tsx`, and
@@ -20,7 +20,7 @@ You need Node.js 20.19 or newer:
 
 <!-- pm-install -->
 ```sh
-npm install oxc-tsrx@latest
+npm install @tsrx/oxc@latest
 ```
 
 Like the CLI tools, the parser is native Rust code. Your package manager
@@ -32,7 +32,7 @@ There are no install scripts, and nothing is downloaded later.
 Two arguments, a file name and its source:
 
 ```js
-import { parseSync } from "oxc-tsrx/parser";
+import { parseSync } from "@tsrx/oxc/parser";
 
 const result = parseSync("View.tsrx", source);
 ```
@@ -44,7 +44,7 @@ when the source came from a string.
 There is an async entry point with the same signature:
 
 ```js
-import { parse } from "oxc-tsrx/parser";
+import { parse } from "@tsrx/oxc/parser";
 
 const result = await parse("View.tsrx", source);
 ```
@@ -77,7 +77,7 @@ Here it is inside a Vite plugin. A bundler hands you the module id and its
 source, which is the shape most tools using this parser end up in:
 
 ```js
-import { parseSync } from "oxc-tsrx/parser";
+import { parseSync } from "@tsrx/oxc/parser";
 import { walk } from "oxc-walker";
 
 export function tsrxKeyedLoops() {
@@ -196,7 +196,7 @@ different build.
 before you rely on something:
 
 ```js
-import { capabilities } from "oxc-tsrx/parser";
+import { capabilities } from "@tsrx/oxc/parser";
 
 capabilities.languages;          // which languages it parses
 capabilities.editorRecovery;     // whether recovery: "editor" works here

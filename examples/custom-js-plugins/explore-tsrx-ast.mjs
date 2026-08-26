@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { parseSync } from "oxc-tsrx/parser";
+import { parseSync } from "@tsrx/oxc/parser";
 
 const file = "src/TaskList.tsrx";
 const result = parseSync(file, readFileSync(file, "utf8"));

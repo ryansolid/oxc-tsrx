@@ -19,7 +19,7 @@ the two ever disagree, that test fails.
 ## Oxlint: one JavaScript plugin, both file types
 
 `oxlint-demo-plugin.mjs` is an Oxlint JavaScript plugin, and `.oxlintrc.json`
-enables it. The `oxlint` binary that `oxc-tsrx` installs runs it on
+enables it. The `oxlint` binary that `@tsrx/oxc` installs runs it on
 `src/TaskRow.tsx`:
 
 ```sh
@@ -90,7 +90,7 @@ TSRX nodes. `demo-lint-plugin.mjs` is the plugin that visits them, and
 
 The files here import the parser as `../../packages/toolchain/dist/parser.js`
 so the repository's own tests can load them without an install. The docs page
-tells readers to use the public `oxc-tsrx/parser` subpath instead; both resolve
+tells readers to use the public `@tsrx/oxc/parser` subpath instead; both resolve
 to the same module, and both the transcript generator and the docs test make
 exactly that one substitution before running.
 
@@ -124,7 +124,7 @@ export default defineConfig({
 The order is parser service, parser-aware consumers, then the existing framework
 transform. Rolldown still parses the framework plugin's generated JavaScript,
 and the service does not patch or replace Vite internals. `withTsrxParser` is
-not exported by the `oxc-tsrx` package, so this is a source-local proof rather
+not exported by the `@tsrx/oxc` package, so this is a source-local proof rather
 than an installable API.
 
 ## The upstream draft

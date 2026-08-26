@@ -10,7 +10,7 @@ skipped file or a wrong-but-plausible result.
 
 ## This package does not compile `.tsrx`
 
-`oxc-tsrx` lints, formats, parses, and powers your editor. Turning `.tsrx` into
+`@tsrx/oxc` lints, formats, parses, and powers your editor. Turning `.tsrx` into
 something a browser runs is a separate job, and it belongs to your framework's
 TSRX plugin. That plugin already exists for React, Preact, Solid, Vue, Ripple,
 and Octane, across Vite, Rspack, Turbopack, and Bun. For React on Vite:
@@ -22,8 +22,8 @@ npm install @tsrx/react @tsrx/vite-plugin-react
 The [TSRX getting started guide](https://tsrx.dev/getting-started) has the other
 framework and bundler combinations. Without one of them your bundler reads
 `.tsrx` as ordinary TypeScript and fails on the first `@{`, and installing
-`oxc-tsrx` will not fix that. The public API is not a substitute either:
-`oxc-tsrx/parser` gives you an AST and `oxc-tsrx/format` gives you formatted
+`@tsrx/oxc` will not fix that. The public API is not a substitute either:
+`@tsrx/oxc/parser` gives you an AST and `@tsrx/oxc/format` gives you formatted
 TSRX, and neither is code a bundler can consume.
 
 ## Formatting
@@ -83,7 +83,7 @@ TSRX, and neither is code a bundler can consume.
   reachable through `oxc-tsrx-lint` and `oxc-tsrx-fmt`, which are always
   installed.
 - The native binaries take explicit file paths only. Directory walking and globs
-  come from the `oxc-tsrx` npm commands and Vite+.
+  come from the `@tsrx/oxc` npm commands and Vite+.
 - Config files must be JSON or JSONC. JS and TS config modules are rejected,
   except through Vite+, where the toolchain resolves your `vite.config.*` once
   and hands both engines the same extracted settings. Values that cannot be
