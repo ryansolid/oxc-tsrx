@@ -642,7 +642,7 @@ test("the providers report is a read-only audit that fails loudly", async (conte
     assert.equal(text.status, 0, text.stderr);
     assert.match(text.stdout, /@tsrx\/oxc@0\.6\.0 \(provider tsrx, protocol 1\)/u);
     assert.match(text.stdout, /language tsrx: \.tsrx/u);
-    assert.match(text.stdout, /routed extensions: \.tsrx -> oxc-tsrx/u);
+    assert.match(text.stdout, /routed extensions: \.tsrx -> @tsrx\/oxc/u);
   });
 
   await context.test("two providers claiming one extension fail loudly", async () => {

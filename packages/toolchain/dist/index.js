@@ -7,7 +7,7 @@ const capabilities = Object.freeze([
 	"languageServer"
 ]);
 const toolchain = Object.freeze({
-	name: "oxc-tsrx",
+	name: "@tsrx/oxc",
 	language: "tsrx",
 	extensions,
 	capabilities
