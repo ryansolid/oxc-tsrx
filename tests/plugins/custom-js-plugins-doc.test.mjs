@@ -147,7 +147,7 @@ async function makeProject() {
   );
   assert.notEqual(swapped, source, "the adapter's relative parser import moved");
   await writeFile(adapter, swapped);
-  await mkdir(join(project, "node_modules"), { recursive: true });
+  await mkdir(join(project, "node_modules/@tsrx"), { recursive: true });
   await symlink(toolchain, join(project, "node_modules/@tsrx/oxc"), "dir");
   return project;
 }
@@ -433,7 +433,7 @@ async function makeWalkthroughProject() {
       2,
     )}\n`,
   );
-  await mkdir(join(project, "node_modules"), { recursive: true });
+  await mkdir(join(project, "node_modules/@tsrx"), { recursive: true });
   await symlink(toolchain, join(project, "node_modules/@tsrx/oxc"), "dir");
   return project;
 }
