@@ -88,6 +88,7 @@ for name in $NAMES; do
     --repo "$REPO" \
     --file "$WORKFLOW" \
     --allow-publish \
+    --allow-stage-publish \
     --yes
   then
     echo "  trusted   $name"
