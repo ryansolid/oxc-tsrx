@@ -4,7 +4,7 @@ const { isAbsolute, join, resolve } = require("node:path");
 const { existsSync, statSync } = require("node:fs");
 const vscode = require("vscode");
 const { LanguageClient } = require("vscode-languageclient/node");
-const { discoverProviders } = require("oxc-tsrx/provider-resolve");
+const { discoverProviders } = require("@tsrx/oxc/provider-resolve");
 const {
   LANGUAGE_SERVER_ARGUMENTS,
   clientForDocument,
@@ -114,7 +114,7 @@ async function resolveCompatibilityServer() {
   if (existsSync(bundled)) return assertServerPath(bundled, "platform VSIX");
   // The last resort resolves the native artifact through the toolchain's own
   // platform-package logic. It is named by source path because it is an
-  // internal module of `oxc-tsrx`, not part of that package's public export
+  // internal module of `@tsrx/oxc`, not part of that package's public export
   // map; the shipped extension is a single Rolldown bundle, so this import is
   // inlined at build time and never resolved on a user's machine.
   const { resolveNativeBinary } = await import("../../toolchain/dist/runtime.js");
