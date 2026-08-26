@@ -239,7 +239,7 @@ async function searchPathEntries(context) {
 /**
 * The loader test from `se()`, and the only place the extension infers a loader
 * from the shape of a path. It matters that `<name>/bin/<name>` is checked with
-* the *package* name: the value `setup` writes ends in `oxc-tsrx/bin/oxlint`,
+* the *package* name: the value `setup` writes ends in `@tsrx/oxc/bin/oxlint`,
 * not `oxlint/bin/oxlint`, so it classifies as `native` and takes the shell
 * spawn route on Windows.
 */

@@ -990,7 +990,7 @@ function materializeCompatibilityProgram(program, source, filename, loose, posit
 	for (let index = 0; index < templateElements.length; index += 1) templateElements[index].metadata.commentContainerId = index + 1;
 }
 function missingProgramError(filename) {
-	const error = /* @__PURE__ */ new SyntaxError(`oxc-tsrx/parser did not return a Program for ${filename}`);
+	const error = /* @__PURE__ */ new SyntaxError(`@tsrx/oxc/parser did not return a Program for ${filename}`);
 	error.code = void 0;
 	error.pos = void 0;
 	error.raisedAt = void 0;
@@ -1085,7 +1085,7 @@ function normalizeEventName(name) {
 	return (isCaptureEvent(original) ? original.slice(0, -7) : original).toLowerCase();
 }
 function createTsrxCoreCompat(parser) {
-	if (typeof parser?.parseSync !== "function") throw new TypeError("@oxc-tsrx/tsrx-core-compat requires a parseSync function");
+	if (typeof parser?.parseSync !== "function") throw new TypeError("@tsrx/oxc-core-compat requires a parseSync function");
 	return Object.freeze({
 		isEventAttribute,
 		normalizeEventName,

@@ -70,7 +70,7 @@ function nativeTargetForHost(os, cpu, libc = void 0) {
 	return target;
 }
 function nativePackageName(target) {
-	return `@oxc-tsrx/native-${target.packageSuffix}`;
+	return `@tsrx/oxc-${target.packageSuffix}`;
 }
 //#endregion
 export { NATIVE_TARGETS, nativePackageName, nativeTargetForHost };
