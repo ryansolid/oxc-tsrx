@@ -1,11 +1,11 @@
 ---
 title: Platform Support
-description: The eight platforms oxc-tsrx publishes, which of them a real run exercises on every pull request, and which of them are only built.
+description: The eight platforms @tsrx/oxc publishes, which of them a real run exercises on every pull request, and which of them are only built.
 ---
 
 # Platform Support
 
-`oxc-tsrx` publishes eight native packages, one per platform, and your install
+`@tsrx/oxc` publishes eight native packages, one per platform, and your install
 downloads exactly the one that matches your machine. Publishing a platform is a
 weaker promise than testing it, so this page says which is which, for all eight.
 
@@ -87,7 +87,7 @@ Node at all. That needs a musl Node on a musl system, a runner this project does
 not have yet.
 
 If you run `oxc-tsrx` on Alpine and something breaks, please
-[file it](https://github.com/markless-dev/oxc-tsrx/issues). That report is what
+[file it](https://github.com/tsrx-org/oxc/issues). That report is what
 would buy the Alpine lane.
 
 ## Tier 3

@@ -117,7 +117,7 @@ async function observeLoader(consumer) {
     const require = createRequire(import.meta.url);
     let parser;
     try {
-      parser = await import("oxc-tsrx/parser");
+      parser = await import("@tsrx/oxc/parser");
       const result = parser.parseSync("entry.ts", "export const value: number = 1");
       process.stdout.write(JSON.stringify({
         ok: true,
@@ -227,7 +227,7 @@ test("the packed parser loader rejects every frozen identity and integrity mutat
       { cwd: consumer, env: npmEnvironment },
     );
 
-    const parserRoot = join(consumer, "node_modules", "oxc-tsrx");
+    const parserRoot = join(consumer, "node_modules", "@tsrx/oxc");
     const nativeRoot = join(
       consumer,
       "node_modules",
@@ -344,7 +344,7 @@ test("the packed parser loader rejects every frozen identity and integrity mutat
       }
       if (row.id === "extra-dependency") {
         await mutateJson(paths.nativeManifest, (value) => {
-          value.dependencies = { "@oxc-tsrx/forbidden": value.version };
+          value.dependencies = { "@tsrx/oxc-forbidden": value.version };
         });
       }
 

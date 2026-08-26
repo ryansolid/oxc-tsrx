@@ -88,7 +88,7 @@ export async function installPhysicalToolPackages(modules, vitePlusPackage) {
     await resolvePackageRoot(vitePlusRequire, vitePlusBinding),
   );
 
-  const toolchainDestination = join(modules, "oxc-tsrx");
+  const toolchainDestination = join(modules, "@tsrx/oxc");
   await copyPackageEntries(join(root, "packages/toolchain"), toolchainDestination, [
     "package.json",
     "bin",
@@ -163,7 +163,7 @@ export async function installPhysicalToolPackages(modules, vitePlusPackage) {
   const projectManifest = JSON.parse(await readFile(projectManifestPath, "utf8"));
   projectManifest.devDependencies = {
     ...projectManifest.devDependencies,
-    "oxc-tsrx": "0.6.0",
+    "@tsrx/oxc": "0.6.0",
   };
   await writeFile(projectManifestPath, `${JSON.stringify(projectManifest, null, 2)}\n`);
   await setupCompatibility({ projectRoot });

@@ -286,7 +286,7 @@ async function exerciseLane(lane, artifacts, environment) {
       type: "module",
       dependencies: {
         "@tsrx/vite-plugin-react": "0.0.72",
-        "oxc-tsrx": "0.6.0",
+        "@tsrx/oxc": "0.6.0",
         react: "19.2.7",
         "react-dom": "19.2.7",
         "vite-plus": lane.vitePlusVersion,
@@ -299,7 +299,7 @@ async function exerciseLane(lane, artifacts, environment) {
       { cwd: consumer, env: environment },
     );
     await mustRun(npm, ["ls", "--all"], { cwd: consumer, env: environment });
-    const toolchainRoot = join(consumer, "node_modules/oxc-tsrx");
+    const toolchainRoot = join(consumer, "node_modules/@tsrx/oxc");
     const activation = await mustRun(
       process.execPath,
       [join(toolchainRoot, "bin/oxc-tsrx"), "setup", "--json"],
@@ -333,7 +333,7 @@ async function exerciseLane(lane, artifacts, environment) {
     );
     for (const packagePath of [
       "node_modules/vite-plus",
-      "node_modules/oxc-tsrx",
+      "node_modules/@tsrx/oxc",
       "node_modules/oxlint",
       "node_modules/oxfmt",
     ]) {
@@ -348,7 +348,7 @@ async function exerciseLane(lane, artifacts, environment) {
       Object.keys(packageJson.dependencies).filter((name) =>
         name.includes("tsrx") || ["oxlint", "oxfmt", "oxc-parser"].includes(name),
       ),
-      ["@tsrx/vite-plugin-react", "oxc-tsrx"],
+      ["@tsrx/vite-plugin-react", "@tsrx/oxc"],
     );
 
     await writeFile(

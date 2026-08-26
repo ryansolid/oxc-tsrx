@@ -199,7 +199,7 @@ function packedEntry(target) {
     unpackedSize: 14097905,
     shasum: "62e463f312886399ada17ae8cbbc6b0288856690",
     integrity: "sha512-2dc/qYe+0lY6dzFWPYbUE/XcdnYBC548tMzjNXFBVC7AV5xVfJGDbAmgaZ2rJd3VJrf/tDi11ucXp974CRRQrw==",
-    filename: "oxc-tsrx-native-recorded-pack-0.1.0.tgz",
+    filename: "tsrx-oxc-native-recorded-pack-0.1.0.tgz",
     files: [{ path: "package.json", size: 1123, mode: 420 }],
     entryCount: 13,
     bundled: [],
@@ -245,7 +245,7 @@ test("a pack report that is not exactly one packed entry still fails with npm's 
     // npm's own failure report is a one-key object that names no file.
     JSON.stringify({ error: { summary: "Invalid package, must have name and version", detail: "" } }),
     JSON.stringify({ [entry.name]: { ...entry, filename: undefined } }),
-    JSON.stringify("oxc-tsrx-native-recorded-pack-0.1.0.tgz"),
+    JSON.stringify("tsrx-oxc-native-recorded-pack-0.1.0.tgz"),
     "not json at all",
   ]) {
     const { result } = await packWithStubbedNpm({ stdout });
@@ -272,7 +272,7 @@ test("current native release stages a complete, checksummed, npm-installable pla
   const packaged = JSON.parse(stdout);
   assert.equal(packaged.version, "0.6.0");
   assert.equal(packaged.target, hostTarget());
-  assert.match(packaged.packageName, /^@oxc-tsrx\/native-/);
+  assert.match(packaged.packageName, /^@tsrx\/oxc-/);
   assert.equal(resolve(packaged.tarball).startsWith(resolve(artifacts)), true);
 
   const consumer = await mkdtemp(join(tmpdir(), "oxc-tsrx-native-consumer-"));
@@ -333,7 +333,7 @@ test("current native release stages a complete, checksummed, npm-installable pla
 test("packaging refuses to build a native package without the parser addon", async () => {
   // 0.1.0 published all eight native packages with no parser.node: the addon
   // was optional, the release never passed it, npm honoured the generated
-  // `files` list and dropped it from every tarball, and `oxc-tsrx/parser` then
+  // `files` list and dropped it from every tarball, and `@tsrx/oxc/parser` then
   // threw ERR_TSRX_NATIVE_INTEGRITY on every consumer. Nothing failed at build
   // time, so the only defence is refusing to produce such a package at all.
   const artifacts = await mkdtemp(join(tmpdir(), "oxc-tsrx-native-noaddon-"));

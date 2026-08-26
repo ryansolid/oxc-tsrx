@@ -12,6 +12,7 @@ use support::{
     scalar_field, span,
 };
 use tsrx_parser_engine::{TsrxParseOptions, TsrxParseRequest, parse_tsrx, parse_tsrx_with_options};
+use tsrx_syntax::{project_for_parser, scan_for_parser};
 use tsrx_tape_schema::{FlatTape, RecordIndex, ValueKind, ValueRef};
 
 fn offset(value: usize) -> u32 {
@@ -272,6 +273,89 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
         }
         assert_eq!(source.as_bytes()[usize::try_from(pattern_start - 1).expect("offset")], b'&');
     }
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn standalone_lazy_assignment_statements_match_the_estree_shape_and_authored_spans() {
+    let source = "&{ value, ...rest } = object;\n&[first, ...tail] = items;";
+    let overlay = scan_for_parser(source).expect("standalone lazy assignment overlay");
+    let projection = project_for_parser(source, &overlay).expect("standalone lazy projection");
+    assert_eq!(
+        projection.source(),
+        "var { value, ...rest } = object;\nvar [first, ...tail] = items;"
+    );
+    let ordinary = parse_ordinary(OrdinaryParseRequest {
+        filename: "standalone.tsx",
+        source: projection.source(),
+        lang: None,
+        source_type: None,
+        ast_type: Some("js"),
+        ranges: false,
+        preserve_parens: None,
+        show_semantic_errors: false,
+    });
+    assert!(ordinary.errors.is_empty(), "{:?}", ordinary.errors);
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("standalone lazy assignments");
+    assert_eq!(result.status, tsrx_tape_schema::ParseCompleteness::Complete, "{:?}", result.errors);
+    let tape = result.program();
+    let body = program_body(tape);
+    assert_eq!(body.len(), 2);
+
+    for (statement, sigil) in body.into_iter().zip(["&{", "&["]) {
+        let statement = statement.as_object().expect("expression statement");
+        require_type(tape, statement, "ExpressionStatement");
+        let expression = object_field(tape, statement, "expression");
+        require_type(tape, expression, "AssignmentExpression");
+        assert_eq!(scalar_field(tape, expression, "operator"), r#""=""#);
+        let pattern = object_field(tape, expression, "left");
+        assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
+
+        let statement_start = source.find(sigil).expect("assignment sigil");
+        let statement_end = source[statement_start..]
+            .find(';')
+            .map(|end| statement_start + end + 1)
+            .expect("assignment terminator");
+        assert_eq!(span(tape, statement), (offset(statement_start), offset(statement_end)));
+        assert_eq!(span(tape, expression), (offset(statement_start), offset(statement_end - 1)));
+        assert_eq!(
+            span(tape, pattern).0,
+            offset(statement_start + 1),
+            "the pattern starts at the authored bracket"
+        );
+    }
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn standalone_lazy_assignments_work_in_every_statement_context_without_matching_expressions() {
+    let source = "function View(source: any) @{\n\
+        if (source) /* consequent */ &{ first } = source;\n\
+        else /* alternate */ &[second] = source;\n\
+        do /* body */ &{ third } = source; while (false);\n\
+        switch (source.kind) { case 'ready': &{ fourth } = source; break; }\n\
+        <p>{first}{second}{third}{fourth}</p>\n\
+    }\n\
+    const text = '&{ ignored } = source';\n\
+    const bitwise = source &{ value: 1 };";
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("statement-context assignments");
+    assert_eq!(result.status, tsrx_tape_schema::ParseCompleteness::Complete);
+    let tape = result.program();
+    let assignments = (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                == Some(r#""AssignmentExpression""#)
+                && tape
+                    .field_index(*object, "left")
+                    .and_then(|field| tape.field_value(field))
+                    .and_then(ValueRef::as_object)
+                    .is_some_and(|left| tape.field_index(left, "lazy").is_some())
+        })
+        .count();
+    assert_eq!(assignments, 4);
     assert_no_scaffold(tape);
 }
 

@@ -47,7 +47,7 @@ where possible, and a semver decision before release.
 
 ## Artifact contents
 
-Each `@oxc-tsrx/native-*` tarball contains:
+Each `@tsrx/oxc-*` platform tarball contains:
 
 - `oxc-tsrx`, one multi-call executable that carries the linter, the formatter,
   and the language server and selects one by subcommand (`fmt`, `lsp`, or the

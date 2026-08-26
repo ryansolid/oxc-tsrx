@@ -2,7 +2,7 @@
 
 This is the optional legacy `.tsrx` client. The primary editor workflow needs
 only the released official OXC extension (`oxc.oxc-vscode`) and a project-local
-`oxc-tsrx` package: its public `oxlint --lsp` command dynamically registers
+`@tsrx/oxc` package: its public `oxlint --lsp` command dynamically registers
 TSRX diagnostics, formatting, and quick fixes while keeping ordinary JS/TS on
 canonical Oxlint.
 
@@ -31,12 +31,12 @@ executable come from the index.
 - A workspace folder that ships a Yarn Plug'n'Play manifest has its
   `resolveRequest` used as the resolver.
 
-Declaring `oxc-tsrx` as a project dependency is therefore the whole
+Declaring `@tsrx/oxc` as a project dependency is therefore the whole
 installation step for TSRX support.
 
 If a folder's discovery finds no provider language server, the client falls back
 to the compatibility chain `oxcTsrx.server.path` → `OXC_TSRX_LSP_BIN` → the
-binary bundled in a platform VSIX → `oxc-tsrx`'s own platform-package
+binary bundled in a platform VSIX → `@tsrx/oxc`'s own platform-package
 resolution, and serves `.tsrx` only. That chain is compatibility-only and is just as lazy: it starts nothing
 until a `.tsrx` document is opened.
 

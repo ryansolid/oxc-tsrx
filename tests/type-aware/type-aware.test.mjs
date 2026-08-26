@@ -265,12 +265,12 @@ test("cross-file component inference remains usable from ordinary TSX", async ()
   assert.equal(output.oxcTsrx.parseCount, 2);
 });
 
-test("the oxc-tsrx lint bridge enables type awareness from resolved Vite+ config", async () => {
+test("the @tsrx/oxc lint bridge enables type awareness from resolved Vite+ config", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "oxc-tsrx-type-vite-plus-"));
   const source = join(cwd, "View.tsrx");
   const modules = join(cwd, "node_modules");
   await mkdir(modules, { recursive: true });
-  // installPhysicalToolPackages records `oxc-tsrx` in the consumer's manifest,
+  // installPhysicalToolPackages records `@tsrx/oxc` in the consumer's manifest,
   // so the consumer needs one. Every other caller copies a fixture that already
   // has it; this one builds its project by hand.
   await writeFile(

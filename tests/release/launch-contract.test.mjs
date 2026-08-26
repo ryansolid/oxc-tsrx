@@ -9,7 +9,7 @@ import { npmChildEnvironment, resolveNpmInvocation } from "../helpers/npm-invoca
 import { parseNpmPackResponse } from "../helpers/npm-pack-response.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
-const repository = "https://github.com/compiled-run/oxc-tsrx";
+const repository = "https://github.com/tsrx-org/oxc";
 const homepage = "https://compiled.run/oxc-tsrx";
 // The v0.1.0 launch manifest is a record of the launch as it ran, when the
 // repo lived in its original org and the site at its original domain; it keeps
@@ -80,7 +80,7 @@ test("launch manifest names every byte set and keeps external actions approval-g
   // One published host package plus the eight platform packages a user never
   // names: nine names, and no first-party wrapper between the user and the
   // toolchain.
-  assert.deepEqual(launch.npm.publishOrder.slice(nativeNames.length), ["oxc-tsrx"]);
+  assert.deepEqual(launch.npm.publishOrder.slice(nativeNames.length), ["@tsrx/oxc"]);
   assert.equal(launch.npm.publishOrder.length, nativeNames.length + 1);
   assert.equal(new Set(launch.npm.publishOrder).size, launch.npm.publishOrder.length);
   assert.deepEqual(

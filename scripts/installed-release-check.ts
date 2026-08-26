@@ -11,7 +11,7 @@ import { npmChildEnvironment, resolveNpmInvocation } from "../tests/helpers/npm-
  *
  * Both halves of the release gate need exactly this: the pre-publish gate hands
  * it the tarballs that are about to be published, and the post-publish backstop
- * hands it `oxc-tsrx@<version>` resolved from the registry. Neither one asserts
+ * hands it `@tsrx/oxc@<version>` resolved from the registry. Neither one asserts
  * anything about the source tree. The project is created outside the workspace,
  * the environment carries none of this repository's overrides, and the only
  * evidence accepted is a diagnostic produced by the installed binary and an AST
@@ -20,10 +20,12 @@ import { npmChildEnvironment, resolveNpmInvocation } from "../tests/helpers/npm-
  * 0.1.0 is the reason the addon is exercised as well as the linter. Every
  * platform package shipped without `parser.node`, and the CLI was unaffected:
  * a lint alone would have gone green on a release that was broken for every
- * `oxc-tsrx/parser` importer on every platform.
+ * `@tsrx/oxc/parser` importer on every platform.
  */
 
 const root = resolve(import.meta.dirname, "..");
+/** The one name a consumer installs; the platform packages hang off it. */
+const PUBLIC_PACKAGE = "@tsrx/oxc";
 
 class ReleaseCheckError extends Error {
   project: string | null;
@@ -100,9 +102,9 @@ const LINT_FIXTURES = {
   ".oxlintrc.json": `${JSON.stringify({ rules: { "no-var": "error" } }, null, 2)}\n`,
   "View.tsrx": "export function View( ) @{var count=0;<button>{count}</button>}\n",
   "ordinary.tsx": "export var ordinary={value:1}\n",
-  // Loaded through the installed package's own `oxc-tsrx/parser` export, so the
+  // Loaded through the installed package's own `@tsrx/oxc/parser` export, so the
   // addon that answers is whichever one npm actually put in `node_modules`.
-  "parser-probe.mjs": `const parser = await import("oxc-tsrx/parser");
+  "parser-probe.mjs": `const parser = await import("@tsrx/oxc/parser");
 const parsed = parser.parseSync(
   "Gate.tsrx",
   "const bytes = 9007199254740993n;\\nfunction View() @{ <main>{bytes}</main> }\\n",
@@ -185,17 +187,19 @@ export async function installAndExerciseRelease({
       );
     }
 
-    const toolchainRoot = join(project, "node_modules", "oxc-tsrx");
+    const toolchainRoot = join(project, "node_modules", ...PUBLIC_PACKAGE.split("/"));
     const toolchainManifest = await readFile(join(toolchainRoot, "package.json"), "utf8").catch(
       () => null,
     );
     if (toolchainManifest === null) {
-      throw new ReleaseCheckError("the install produced no node_modules/oxc-tsrx", { project });
+      throw new ReleaseCheckError(`the install produced no node_modules/${PUBLIC_PACKAGE}`, {
+        project,
+      });
     }
     const toolchain = JSON.parse(toolchainManifest);
     if (expectedVersion && toolchain.version !== expectedVersion) {
       throw new ReleaseCheckError(
-        `installed oxc-tsrx is ${toolchain.version}, expected ${expectedVersion}`,
+        `installed ${PUBLIC_PACKAGE} is ${toolchain.version}, expected ${expectedVersion}`,
         { project },
       );
     }
@@ -226,7 +230,7 @@ export async function installAndExerciseRelease({
     const addonStat = await stat(addonPath).catch(() => null);
     if (!addonStat?.isFile()) {
       throw new ReleaseCheckError(
-        `${host.name} installed without parser.node; every oxc-tsrx/parser import would fail on ${host.target.target}`,
+        `${host.name} installed without parser.node; every @tsrx/oxc/parser import would fail on ${host.target.target}`,
         { project },
       );
     }
@@ -256,7 +260,7 @@ export async function installAndExerciseRelease({
       );
     }
     log(
-      `  installed oxc-tsrx@${toolchain.version} and ${host.name}@${platform.version} ` +
+      `  installed ${PUBLIC_PACKAGE}@${toolchain.version} and ${host.name}@${platform.version} ` +
         `(parser.node ${addonStat.size} bytes, sha256 ${installedSha.slice(0, 16)})`,
     );
 
@@ -316,20 +320,20 @@ export async function installAndExerciseRelease({
     });
     if (parse.status !== 0) {
       throw new ReleaseCheckError(
-        `oxc-tsrx/parser failed through the installed package:\n${parse.stderr || parse.stdout}`,
+        `@tsrx/oxc/parser failed through the installed package:\n${parse.stderr || parse.stdout}`,
         { project },
       );
     }
     const parsed = JSON.parse(parse.stdout);
     if (parsed.program !== "Program" || parsed.errors !== 0 || parsed.literal !== "9007199254740993") {
       throw new ReleaseCheckError(
-        `oxc-tsrx/parser produced an unexpected AST through the installed package: ${parse.stdout}`,
+        `@tsrx/oxc/parser produced an unexpected AST through the installed package: ${parse.stdout}`,
         { project },
       );
     }
     if (!parsed.diagnostic) {
       throw new ReleaseCheckError(
-        "oxc-tsrx/parser produced no diagnostic for a malformed view, so nothing proves the addon answered",
+        "@tsrx/oxc/parser produced no diagnostic for a malformed view, so nothing proves the addon answered",
         { project },
       );
     }

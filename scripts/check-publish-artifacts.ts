@@ -13,7 +13,7 @@ import { readPackageTarball } from "./read-package-tarball.ts";
  * The pre-publish gate.
  *
  * 0.1.0 shipped every one of the eight platform packages without `parser.node`,
- * so `oxc-tsrx/parser` threw on every consumer machine on every platform, and
+ * so `@tsrx/oxc/parser` threw on every consumer machine on every platform, and
  * the release was called done because the publish workflow asked npm whether a
  * version string resolved. A version string resolving proves the package
  * exists. It proves nothing about what is inside it.
@@ -46,8 +46,12 @@ import { readPackageTarball } from "./read-package-tarball.ts";
  */
 
 const root = resolve(import.meta.dirname, "..");
-const PUBLIC_PACKAGE = "oxc-tsrx";
-const NATIVE_PREFIX = "@oxc-tsrx/native-";
+// The public name is a prefix of the platform names minus the trailing hyphen,
+// so `@tsrx/oxc` is not `startsWith(NATIVE_PREFIX)` and the two sets stay
+// disjoint. Every discrimination below still tests PUBLIC_PACKAGE by equality
+// first and only then falls through to the prefix.
+const PUBLIC_PACKAGE = "@tsrx/oxc";
+const NATIVE_PREFIX = "@tsrx/oxc-";
 const LIFECYCLE_SCRIPTS = ["preinstall", "install", "postinstall", "prepare", "prepublish"];
 
 function parseArguments(argv): any {
@@ -388,7 +392,7 @@ function checkPlatformPackage(pkg, version) {
   let reportedAddon = null;
   if (!addonRecord) {
     fail(
-      `${name}: declares no parser addon; every oxc-tsrx/parser import on ${target.target} would ` +
+      `${name}: declares no parser addon; every @tsrx/oxc/parser import on ${target.target} would ` +
         "fail on this package, which is the 0.1.0 defect",
     );
   } else {

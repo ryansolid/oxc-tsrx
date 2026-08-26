@@ -26,7 +26,7 @@ import { temporaryDirectory } from "./temporary-directory.mjs";
  * dependency graph: add something, remove something, install again, install
  * again from the frozen lockfile, rebuild. After every one of those, with
  * `setup` never run again, the editor must still resolve `.tsrx` linting to a
- * binary inside `node_modules/oxc-tsrx`.
+ * binary inside `node_modules/@tsrx/oxc`.
  *
  * The one mechanism this test is forbidden from leaning on is
  * `node_modules/.bin/oxlint`. pnpm 10.33 rewrites that shim on install,
@@ -38,7 +38,7 @@ import { temporaryDirectory } from "./temporary-directory.mjs";
  * working, it is not the shim.
  *
  * What is left is the `oxc.path.oxlint` key in `.vscode/settings.json` plus the
- * `oxc-tsrx` dependency itself, and the oracle in
+ * `@tsrx/oxc` dependency itself, and the oracle in
  * `packages/toolchain/dist/editor-resolution.js` is what says whether that pair
  * would really make the official OXC extension spawn our linter.
  *
@@ -61,7 +61,7 @@ const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
 /**
  * Named to lose nothing to chance: it declares the same two bin names Vite+
- * declares, and it sorts after `oxc-tsrx`, which is the shape that was measured
+ * declares, and it sorts after `@tsrx/oxc`, which is the shape that was measured
  * to take both names under pnpm 10.33.2. If a future pnpm flips the tie-break,
  * the precondition assertion below fails loudly rather than letting the rest of
  * the file quietly prove nothing.
@@ -73,7 +73,7 @@ const FILLER = "oxc-tsrx-reinstall-filler";
 const FILLER_VERSION = "1.0.0";
 
 const EDITOR_KEY = "oxc.path.oxlint";
-const EDITOR_VALUE = "node_modules/oxc-tsrx/bin/oxlint";
+const EDITOR_VALUE = "node_modules/@tsrx/oxc/bin/oxlint";
 
 function run(executable, args, options = {}) {
   return new Promise((resolveRun, rejectRun) => {
@@ -187,8 +187,8 @@ async function describeLinterShim(consumer, providerReal) {
   const source = info.isFile() && !info.isSymbolicLink()
     ? await readFile(shim, "utf8").catch(() => "")
     : "";
-  if (/oxc-tsrx[\\/]bin[\\/]oxlint/u.test(source)) {
-    return { present: true, ours: true, detail: "text shim naming oxc-tsrx" };
+  if (/@tsrx[\\/]oxc[\\/]bin[\\/]oxlint/u.test(source)) {
+    return { present: true, ours: true, detail: "text shim naming @tsrx/oxc" };
   }
   return { present: true, ours: false, detail: target ?? "text shim naming another package" };
 }
@@ -276,7 +276,7 @@ test(
             private: true,
             type: "module",
             devDependencies: {
-              "oxc-tsrx": toolchainVersion,
+              "@tsrx/oxc": toolchainVersion,
               [COLLIDER]: COLLIDER_VERSION,
             },
           },
@@ -311,14 +311,14 @@ test(
 
       await mustRun(pnpm, ["install", "--no-frozen-lockfile", ...installFlags], inConsumer);
 
-      const cli = join(consumer, "node_modules/oxc-tsrx/bin/oxc-tsrx");
-      const providerReal = await realpath(join(consumer, "node_modules/oxc-tsrx"));
+      const cli = join(consumer, "node_modules/@tsrx/oxc/bin/oxc-tsrx");
+      const providerReal = await realpath(join(consumer, "node_modules/@tsrx/oxc"));
 
       // The oracle is loaded out of the *installed* package rather than out of
       // the repo, so a run that passes also proves the module is in the tarball
       // the consumer actually received.
       const installedManifest = createRequire(join(consumer, "package.json")).resolve(
-        "oxc-tsrx/package.json",
+        "@tsrx/oxc/package.json",
       );
       const { resolveEditorLinter } = await import(
         pathToFileURL(join(dirname(installedManifest), "dist/editor-resolution.js")).href
@@ -371,7 +371,7 @@ test(
         const configured = JSON.parse(await readSettings(consumer))[EDITOR_KEY] ?? null;
 
         // (a) The oracle, replaying the official extension's lookup, lands
-        // inside node_modules/oxc-tsrx and on a package that claims `.tsrx`.
+        // inside node_modules/@tsrx/oxc and on a package that claims `.tsrx`.
         const resolution = await resolveEditorLinter(editorWindow(consumer, configured));
         assert.equal(
           resolution.source,
@@ -385,7 +385,7 @@ test(
         );
         assert.equal(
           resolution.path,
-          join(consumer, "node_modules/oxc-tsrx/bin/oxlint"),
+          join(consumer, "node_modules/@tsrx/oxc/bin/oxlint"),
           `${label}: the editor would spawn ${resolution.path}`,
         );
         assert.equal(
@@ -482,7 +482,7 @@ test(
           },
           {
             label: "the key points at a path that no longer exists",
-            settings: `${JSON.stringify({ [EDITOR_KEY]: "node_modules/oxc-tsrx/bin/oxlint-gone" }, null, 2)}\n`,
+            settings: `${JSON.stringify({ [EDITOR_KEY]: "node_modules/@tsrx/oxc/bin/oxlint-gone" }, null, 2)}\n`,
             expected: /did not resolve \(configured-missing\)/u,
           },
         ];

@@ -4,8 +4,8 @@
 //
 // `bumpp` rewrites the `version` field of a manifest and nothing else. That is a
 // small fraction of this repository's version surface: the toolchain package
-// pins all eight `@oxc-tsrx/native-*` platform packages to the exact version,
-// two more manifests pin `oxc-tsrx` itself, the Cargo workspace carries its own
+// pins all eight `@tsrx/oxc-*` platform packages to the exact version,
+// two more manifests pin `@tsrx/oxc` itself, the Cargo workspace carries its own
 // version, `packages/toolchain/src/` is authored source and
 // `packages/toolchain/dist/` is committed build output, and eighteen test files
 // assert or install a literal version string.
@@ -83,7 +83,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
  * A slot declares which spelling it expects and is rewritten in that same
  * spelling, so an escaped assertion stays escaped and keeps matching after a
  * cut. Before this existed, `tests/packaging/provider-discovery.test.mjs`
- * asserted `oxc-tsrx@0\.1\.4` and no slot could see it.
+ * asserted `@tsrx\/oxc@0\.1\.4` and no slot could see it.
  */
 const SPELLINGS: any = {
   plain: {
@@ -132,21 +132,24 @@ const slot = (source, spelling = SPELLINGS.plain) => {
 // Slot shapes
 // ---------------------------------------------------------------------------
 
-/** `"oxc-tsrx": "1.0.0"` — a dependency pin in a manifest or a test fixture. */
-const DEP = () => slot(String.raw`"oxc-tsrx":\s*"<V>"`);
+/** `"@tsrx/oxc": "1.0.0"` — a dependency pin in a manifest or a test fixture. */
+const DEP = () => slot(String.raw`"@tsrx/oxc":\s*"<V>"`);
 
-/** `'oxc-tsrx': '1.0.0'` — the same pin inside a single-quoted template source. */
-const DEP_SINGLE_QUOTED = () => slot(String.raw`'oxc-tsrx':\s*'<V>'`);
+/** `'@tsrx/oxc': '1.0.0'` — the same pin inside a single-quoted template source. */
+const DEP_SINGLE_QUOTED = () => slot(String.raw`'@tsrx/oxc':\s*'<V>'`);
 
 /**
- * `oxc-tsrx@1\.0\.0` — the npm-style spec the CLI prints, asserted inside a
- * regex literal, so every dot arrives escaped. Rewritten in the same spelling.
+ * `@tsrx\/oxc@1\.0\.0` — the npm-style spec the CLI prints, asserted inside a
+ * regex literal, so every dot arrives escaped and the scope separator usually
+ * does too. Rewritten in the same spelling. The `\\?` before the slash accepts
+ * both spellings, because a `/` only has to be escaped inside a regex literal
+ * and the same spec also shows up in plain strings.
  */
 const CLI_SPEC_IN_REGEX = () =>
-  slot(String.raw`oxc-tsrx@<V>`, SPELLINGS.regexEscaped);
+  slot(String.raw`@tsrx\\?/oxc@<V>`, SPELLINGS.regexEscaped);
 
-/** `assert.equal(manifest.dependencies["oxc-tsrx"], "1.0.0")` */
-const ASSERT_DEP = () => slot(String.raw`dependencies\["oxc-tsrx"\],\s*"<V>"`);
+/** `assert.equal(manifest.dependencies["@tsrx/oxc"], "1.0.0")` */
+const ASSERT_DEP = () => slot(String.raw`dependencies\["@tsrx/oxc"\],\s*"<V>"`);
 
 /** `assert.equal(<something>.version, "1.0.0")` */
 const ASSERT_VERSION = () => slot(String.raw`\.version,\s*"<V>"`);
@@ -160,9 +163,9 @@ const PROVIDER_VERSION = () => slot(String.raw`providerVersion:\s*"<V>"`);
 /** `const version = "1.0.0";` — the module constant in native-version.test.mjs. */
 const CONST_VERSION = () => slot(String.raw`const version = "<V>";`);
 
-/** `["@oxc-tsrx/native-darwin-arm64", "1.0.0"],` — an optionalDependencies assertion. */
+/** `["@tsrx/oxc-darwin-arm64", "1.0.0"],` — an optionalDependencies assertion. */
 const NATIVE_PIN_ENTRY = () =>
-  slot(String.raw`"@oxc-tsrx/native-[a-z0-9-]+",\s*"<V>"`);
+  slot(String.raw`"@tsrx/oxc-[a-z0-9-]+",\s*"<V>"`);
 
 /**
  * The bare third element of a `[directory, name, version]` tuple built from
@@ -177,16 +180,17 @@ const NATIVE_FIXTURE_VERSION = () =>
 
 /**
  * The compatibility facade fixture: a package literally named `oxlint` that is
- * the oxc-tsrx bridge, so its own version tracks oxc-tsrx rather than oxlint.
+ * the `@tsrx/oxc` bridge, so its own version tracks `@tsrx/oxc` rather than
+ * oxlint.
  */
 const FACADE_MANIFEST_VERSION = () =>
   slot(
     String.raw`name: "oxlint",\s*\n\s*version: "<V>",\s*\n\s*bin: \{ oxlint: "\./bin/oxlint" \},\s*\n\s*oxcTsrxCompatibility:`,
   );
 
-/** An inline one-line `oxc-tsrx` manifest written into a throwaway fixture. */
-const INLINE_OXC_TSRX_MANIFEST = () =>
-  slot(String.raw`name: "oxc-tsrx", version: "<V>"`);
+/** An inline one-line `@tsrx/oxc` manifest written into a throwaway fixture. */
+const INLINE_TOOLCHAIN_MANIFEST = () =>
+  slot(String.raw`name: "@tsrx/oxc", version: "<V>"`);
 
 /** `[workspace.package]` / `version = "1.0.0"` in the Cargo workspace root. */
 const CARGO_WORKSPACE_VERSION = () =>
@@ -211,23 +215,23 @@ const jsonTargets: any[] = [
     file: "packages/toolchain/package.json",
     paths: [
       ["version"],
-      ["optionalDependencies", "@oxc-tsrx/native-darwin-arm64"],
-      ["optionalDependencies", "@oxc-tsrx/native-darwin-x64"],
-      ["optionalDependencies", "@oxc-tsrx/native-linux-arm64-gnu"],
-      ["optionalDependencies", "@oxc-tsrx/native-linux-arm64-musl"],
-      ["optionalDependencies", "@oxc-tsrx/native-linux-x64-gnu"],
-      ["optionalDependencies", "@oxc-tsrx/native-linux-x64-musl"],
-      ["optionalDependencies", "@oxc-tsrx/native-win32-arm64-msvc"],
-      ["optionalDependencies", "@oxc-tsrx/native-win32-x64-msvc"],
+      ["optionalDependencies", "@tsrx/oxc-darwin-arm64"],
+      ["optionalDependencies", "@tsrx/oxc-darwin-x64"],
+      ["optionalDependencies", "@tsrx/oxc-linux-arm64-gnu"],
+      ["optionalDependencies", "@tsrx/oxc-linux-arm64-musl"],
+      ["optionalDependencies", "@tsrx/oxc-linux-x64-gnu"],
+      ["optionalDependencies", "@tsrx/oxc-linux-x64-musl"],
+      ["optionalDependencies", "@tsrx/oxc-win32-arm64-msvc"],
+      ["optionalDependencies", "@tsrx/oxc-win32-x64-msvc"],
     ],
   },
   {
     file: "packages/tsrx-core-compat/package.json",
-    paths: [["version"], ["dependencies", "oxc-tsrx"]],
+    paths: [["version"], ["dependencies", "@tsrx/oxc"]],
   },
   {
     file: "packages/vscode/package.json",
-    paths: [["version"], ["dependencies", "oxc-tsrx"]],
+    paths: [["version"], ["dependencies", "@tsrx/oxc"]],
   },
   {
     // Written by scripts/build-parser-native.ts, but only this one field moves
@@ -324,14 +328,14 @@ const textTargets: any[] = [
       [DEP, 8],
       [FACADE_MANIFEST_VERSION, 1],
       [PROVIDER_VERSION, 1],
-      [INLINE_OXC_TSRX_MANIFEST, 2],
+      [INLINE_TOOLCHAIN_MANIFEST, 2],
     ],
   },
   { file: "tests/packaging/vite-plus-matrix.test.mjs", slots: [[DEP, 1]] },
   { file: "tests/packaging/vscode-artifact.test.mjs", slots: [[ASSERT_VERSION, 1]] },
   { file: "tests/plugins/custom-js-plugins-doc.test.mjs", slots: [[DEP, 1]] },
   { file: "tests/vite/physical-consumer.mjs", slots: [[DEP, 1]] },
-  // Docs and README install commands say `oxc-tsrx@latest` (owner decision,
+  // Docs and README install commands say `@tsrx/oxc@latest` (owner decision,
   // 2026-08-14) and are no longer declared here. The trade this accepts is
   // pnpm's release-age hold: for about a day after a publish, `@latest`
   // resolves the previous release. tests/site/documented-version-pin.test.mjs
@@ -398,8 +402,8 @@ const LOOSE_DOT = String.raw`(?:\\?\.|\[\\?\.\])`;
  *
  * The boundaries reject a longer number that merely starts or ends the same way
  * (`10.1.4`, `0.1.40`, `0.1.4.2`) while still finding the real thing at the end
- * of a sentence (`... oxc-tsrx 0.1.4.`) or in front of a file extension
- * (`oxc-tsrx-0.1.4.tgz`).
+ * of a sentence (`... @tsrx/oxc 0.1.4.`) or in front of a file extension
+ * (`tsrx-oxc-0.1.4.tgz`).
  */
 function findVersions(text) {
   const regexp = new RegExp(
@@ -418,9 +422,14 @@ function findVersions(text) {
   return found;
 }
 
-/** Names whose version is this repository's version. */
+/**
+ * Names whose version is this repository's version: the toolchain itself, the
+ * eight platform packages and the core-compat facade that share its scope, the
+ * VS Code extension (still spelled `oxc-tsrx-vscode`, because a Marketplace
+ * identity cannot be renamed), and the `oxlint` compatibility facade.
+ */
 const OUR_PACKAGE =
-  /^(?:oxc-tsrx(?:-vscode)?|@oxc-tsrx\/[A-Za-z0-9._-]+|oxlint)$/;
+  /^(?:@tsrx\/oxc(?:-[A-Za-z0-9._-]+)?|oxc-tsrx-vscode|oxlint)$/;
 
 /** A key like `version`, `packageVersion`, `providerVersion`, `PACKAGE_VERSION`. */
 const VERSION_FIELD = /version$/i;
@@ -431,8 +440,8 @@ const VERSION_FIELD = /version$/i;
  * so a package name three lines up never claims a version that is not its own.
  *
  *   "vite": "5.0.0"        pin        -> vite
- *   'oxc-tsrx': '0.1.4'    pin        -> oxc-tsrx
- *   oxc-tsrx@0\.1\.4       spec       -> oxc-tsrx
+ *   '@tsrx/oxc': '0.1.4'   pin        -> @tsrx/oxc
+ *   @tsrx/oxc@0\.1\.4      spec       -> @tsrx/oxc
  *   version = "0.1.4"      assignment -> version
  */
 function ownerOf(text, start) {
@@ -458,7 +467,7 @@ function ownerOf(text, start) {
  *
  * So ownership decides, and it errs in a specific direction:
  *
- *   pin / spec   `"oxc-tsrx": "…"`, `oxc-tsrx@…`. The name says whose version
+ *   pin / spec   `"@tsrx/oxc": "…"`, `@tsrx/oxc@…`. The name says whose version
  *                this is. Ours has to be declared, anybody else's is ignored.
  *   no owner     a regex literal, prose, a tarball name. Nothing claims it, so
  *                it has to be declared. This is where the escaped-dot assertion
@@ -500,7 +509,7 @@ function undeclaredInText(text, slots, interesting) {
  * The same question for a JSON target, where the edit happens through the parsed
  * object and there are no capture ranges to compare against. A reference is
  * covered when its own key is a declared leaf key and that key has not already
- * used up its declared occurrences, so a second `"oxc-tsrx"` pin in a section
+ * used up its declared occurrences, so a second `"@tsrx/oxc"` pin in a section
  * this script does not know about is still reported.
  */
 function undeclaredInJson(text, keyPaths, interesting) {

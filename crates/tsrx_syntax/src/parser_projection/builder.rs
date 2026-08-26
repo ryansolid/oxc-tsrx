@@ -536,6 +536,9 @@ impl<'a> Builder<'a> {
             return Err(ProjectionError::StructuralMismatch);
         }
         self.copy_to(pattern.ampersand as usize)?;
+        if pattern.standalone {
+            self.output.push_str("var ");
+        }
         self.cursor = pattern.ampersand.saturating_add(1) as usize;
         Ok(())
     }

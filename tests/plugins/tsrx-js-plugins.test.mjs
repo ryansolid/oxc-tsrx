@@ -115,8 +115,8 @@ async function makeProject(config, extra = {}) {
     await mkdir(join(target, ".."), { recursive: true });
     await writeFile(target, contents);
   }
-  await mkdir(join(project, "node_modules"), { recursive: true });
-  await symlink(toolchain, join(project, "node_modules/oxc-tsrx"), "dir");
+  await mkdir(join(project, "node_modules/@tsrx"), { recursive: true });
+  await symlink(toolchain, join(project, "node_modules/@tsrx/oxc"), "dir");
   return project;
 }
 

@@ -10,14 +10,14 @@ A host tool cannot lint a file type it has never heard of. This page proposes
 the smallest fix: one static block in a package's own `package.json`, naming the
 extensions it owns and the files that handle them.
 
-**You never have to touch any of this to use `oxc-tsrx`.** Your `.tsrx` files
+**You never have to touch any of this to use `@tsrx/oxc`.** Your `.tsrx` files
 reach your linter, formatter, and editor through the `oxlint` and `oxfmt`
 command names, which work whether or not a host ever reads a provider block.
 [How a plain install reaches released
 hosts](#how-a-plain-install-reaches-released-hosts) is that path.
 
-What is real here is a reference implementation: `oxc-tsrx` declares the block,
-`oxc-tsrx/provider-resolve` reads it, and this repository's editor client and
+What is real here is a reference implementation: `@tsrx/oxc` declares the block,
+`@tsrx/oxc/provider-resolve` reads it, and this repository's editor client and
 `oxlint --lsp` use it.
 
 ## Install-only discovery
@@ -162,7 +162,7 @@ unchanged.
 import {
   discoverProviders,
   resolveCapability,
-} from "oxc-tsrx/provider-resolve";
+} from "@tsrx/oxc/provider-resolve";
 
 const index = await discoverProviders({ root: process.cwd() });
 const server = resolveCapability(index, "src/View.tsrx", "lsp");
@@ -207,7 +207,7 @@ Your installer links them into `node_modules/.bin`, and released
 `oxc.oxc-vscode` 1.59.0 probes `<folder>/node_modules/.bin/oxlint` first.
 
 Two packages cannot own one command name, and installers disagree about the
-winner: with `oxc-tsrx` and official `oxlint` in one project, npm 11 links this
+winner: with `@tsrx/oxc` and official `oxlint` in one project, npm 11 links this
 package's launcher and pnpm 10 links the official one. So the launcher reads the
 nearest `package.json` and decides for itself.
 
@@ -215,7 +215,7 @@ nearest `package.json` and decides for itself.
 
 | What your project's `package.json` says | What `oxlint` and `oxfmt` then run |
 | --- | --- |
-| It declares `oxlint` or `oxfmt` itself | That pinned binary, unchanged. Adding `oxc-tsrx` cannot alter what a pinned project's lint command does. To lint `.tsrx` there, run `oxc-tsrx-lint` and `oxc-tsrx-fmt` |
+| It declares `oxlint` or `oxfmt` itself | That pinned binary, unchanged. Adding `@tsrx/oxc` cannot alter what a pinned project's lint command does. To lint `.tsrx` there, run `oxc-tsrx-lint` and `oxc-tsrx-fmt` |
 | It declares neither | TSRX support, through this package. A transitive official `oxlint`, such as the one Vite+ brings, is not a declaration |
 | It declares one that is not installed | Nothing. The launcher exits 2 rather than guess which binary you meant |
 

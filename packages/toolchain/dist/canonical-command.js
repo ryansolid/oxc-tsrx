@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 * Arbitration for the canonical command names this package also publishes.
 *
 * `oxc-tsrx` ships `oxlint` and `oxfmt` bins because that is the only thing
-* that makes a plain `npm install oxc-tsrx` reach released hosts: the installer
+* that makes a plain `npm install @tsrx/oxc` reach released hosts: the installer
 * links `node_modules/.bin/oxlint`, and the released `oxc.oxc-vscode`
 * extension probes exactly that path first. Nothing else about the shipped
 * artifact reaches an unmodified host.

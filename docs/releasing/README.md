@@ -31,14 +31,17 @@ reviewed as part of it:
 
 One version is released as a unit:
 
-- eight `@oxc-tsrx/native-*` platform packages;
-- the public `oxc-tsrx` toolchain; and
+- eight `@tsrx/oxc-*` platform packages;
+- the public `@tsrx/oxc` toolchain; and
 - eight target-specific VSIX files for
   `thejackshelton.oxc-tsrx-vscode`.
 
 That is nine npm packages. `@oxc-tsrx/runtime`, `@oxc-tsrx/parser`,
-`oxlint-tsrx`, and `oxfmt-tsrx` were folded into `oxc-tsrx` on 2026-07-25 and no
-longer exist. `docs/releasing/v0.1.0-launch.json` holds the authoritative list
+`oxlint-tsrx`, and `oxfmt-tsrx` were folded into the public package on
+2026-07-25 and no longer exist. The public package and its platform packages
+were renamed from `oxc-tsrx` and `@oxc-tsrx/native-*` in 2026-08, when the
+repository moved to `tsrx-org/oxc`; the extension ID and the built binary name
+did not change. `docs/releasing/v0.1.0-launch.json` holds the authoritative list
 and the publish order.
 
 Every native artifact must report the same project version and official OXC
@@ -47,7 +50,7 @@ revision. A partial set is not a supported release.
 ## 1. Freeze the candidate
 
 Use an exact commit, not a moving branch tip. Confirm that the root, public
-`oxc-tsrx` toolchain, optional legacy editor extension, and generated native
+`@tsrx/oxc` toolchain, optional legacy editor extension, and generated native
 manifests all carry the intended version. Confirm that the
 adapter still pins all twelve direct OXC dependencies to one full canonical Git
 commit and that their OXC workspace lock closure has no second source or
@@ -114,7 +117,7 @@ After the exact commit is present on GitHub, manually dispatch **Build release
 candidate** on that ref. The workflow builds on matching x64/arm64 hosts, emits
 all eight native npm packages and all eight target VSIX files, then adds:
 
-- the one platform-independent npm package, `oxc-tsrx`;
+- the one platform-independent npm package, `@tsrx/oxc`;
 - `SHA256SUMS`;
 - JavaScript and Rust CycloneDX SBOMs;
 - the exact legal texts and locked Rust and VS Code bundle dependency
@@ -198,8 +201,8 @@ The short version:
 - The workflow runs only on `workflow_dispatch`, defaults to `mode: dry-run`,
   and refuses to publish unless the operator types `PUBLISH <version>`.
 - The publish order is read from `docs/releasing/v0.1.0-launch.json`: the eight
-  `@oxc-tsrx/native-*` packages first, then `oxc-tsrx`. Never publish
-  `oxc-tsrx` before the platform packages it lists in `optionalDependencies`,
+  `@tsrx/oxc-*` packages first, then `@tsrx/oxc`. Never publish
+  `@tsrx/oxc` before the platform packages it lists in `optionalDependencies`,
   and never promote it to `latest` before they are all present at the same
   version.
 
@@ -229,7 +232,7 @@ From empty directories on every available OS/CPU/libc family:
 - install exact registry versions with no source-tree overrides;
 - verify `oxc-tsrx --version`, `oxc-tsrx fmt --version`, and `oxc-tsrx lsp --version`;
 - repeat the mixed lint/format/Vite+ smoke tests;
-- install `oxc-tsrx` with the released official OXC extension and repeat the
+- install `@tsrx/oxc` with the released official OXC extension and repeat the
   multiplexed ordinary/TSRX editor proof; optionally validate the matching
   legacy Marketplace VSIX separately; and
 - compare downloaded artifacts to the approved candidate checksums.

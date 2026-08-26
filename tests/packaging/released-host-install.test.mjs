@@ -13,7 +13,7 @@ import { scriptNode } from "../helpers/script-node.mjs";
 import { startLocalRegistry } from "./local-registry.mjs";
 
 /**
- * The path a real developer takes: `npm install oxc-tsrx`, and nothing else.
+ * The path a real developer takes: `npm install @tsrx/oxc`, and nothing else.
  *
  * `provider-discovery.test.mjs` and the install-only VS Code session deliberately
  * delete `node_modules/.bin` and shadow `PATH`, because they isolate static
@@ -415,7 +415,7 @@ test(
     await context.test(
       "the default install path: node_modules/.bin intact, PATH untouched, no setup",
       async () => {
-        const { consumer, environment, bin } = await install("default", { "oxc-tsrx": "0.6.0" });
+        const { consumer, environment, bin } = await install("default", { "@tsrx/oxc": "0.6.0" });
 
         // Nothing ran but the install, so none of the compatibility bridge's
         // package-name facades can exist.
@@ -436,7 +436,7 @@ test(
           }
           assert.equal(
             await binTarget(consumer, binary),
-            await realpath(join(consumer, "node_modules/oxc-tsrx/bin", binary)),
+            await realpath(join(consumer, "node_modules/@tsrx/oxc/bin", binary)),
             binary,
           );
         }
@@ -492,7 +492,7 @@ test(
         assert.equal(await exists(join(consumer, "node_modules/.bin/oxlint")), true);
         assert.deepEqual(
           JSON.parse(await readFile(join(consumer, "package.json"), "utf8")).dependencies,
-          { "oxc-tsrx": "0.6.0" },
+          { "@tsrx/oxc": "0.6.0" },
         );
       },
     );
@@ -501,7 +501,7 @@ test(
       "Vite+ keeps working on ordinary files and still cannot see .tsrx",
       async () => {
         const { consumer, environment, bin } = await install("vite-plus", {
-          "oxc-tsrx": "0.6.0",
+          "@tsrx/oxc": "0.6.0",
           "vite-plus": VITE_PLUS,
         });
         await writeFile(
@@ -543,7 +543,7 @@ test(
         // name, so `npx oxlint` in the same project still serves TSRX.
         assert.equal(
           await binTarget(consumer, "oxlint"),
-          await realpath(join(consumer, "node_modules/oxc-tsrx/bin/oxlint")),
+          await realpath(join(consumer, "node_modules/@tsrx/oxc/bin/oxlint")),
         );
         const lint = await run(bin("oxlint"), ["--format=json", "View.tsrx", "ordinary.tsx"], {
           cwd: consumer,
@@ -613,7 +613,7 @@ test(
       // link, the developer sees exactly the silence they had before.
       const launcherOwnsLink =
         (await binTarget(consumer, "oxlint")) ===
-        (await realpath(join(consumer, "node_modules/oxc-tsrx/bin/oxlint")));
+        (await realpath(join(consumer, "node_modules/@tsrx/oxc/bin/oxlint")));
       const provided = await run(bin("oxlint"), ["--format=json", "View.tsrx", "ordinary.tsx"], {
         cwd: consumer,
         env: environment,
@@ -652,7 +652,7 @@ test(
     let npmWinner;
     await context.test("a project that also pins official oxlint and oxfmt keeps them", async () => {
       const consumer = await install("collision", {
-        "oxc-tsrx": "0.6.0",
+        "@tsrx/oxc": "0.6.0",
         oxlint: OFFICIAL_OXLINT,
         oxfmt: OFFICIAL_OXFMT,
       });
@@ -668,7 +668,7 @@ test(
         }
         const consumer = await install(
           "collision-pnpm",
-          { "oxc-tsrx": "0.6.0", oxlint: OFFICIAL_OXLINT, oxfmt: OFFICIAL_OXFMT },
+          { "@tsrx/oxc": "0.6.0", oxlint: OFFICIAL_OXLINT, oxfmt: OFFICIAL_OXFMT },
           "pnpm",
         );
         const pnpmWinner = await assertPinnedToolsUnchanged(consumer, "pnpm");
@@ -683,7 +683,7 @@ test(
 
     await context.test("a declared but uninstalled official package fails loudly", async () => {
       const { consumer, environment, bin } = await install("declared-missing", {
-        "oxc-tsrx": "0.6.0",
+        "@tsrx/oxc": "0.6.0",
       });
       const manifest = JSON.parse(await readFile(join(consumer, "package.json"), "utf8"));
       manifest.dependencies.oxlint = OFFICIAL_OXLINT;

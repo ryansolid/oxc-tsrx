@@ -1,17 +1,19 @@
 <p align="center">
   <a href="https://compiled.run/oxc-tsrx">
-    <img alt="OXC for TSRX" width="600" src="https://raw.githubusercontent.com/markless-dev/oxc-tsrx/HEAD/.github/assets/readme-hero.png">
+    <img alt="OXC for TSRX" width="600" src="https://raw.githubusercontent.com/tsrx-org/oxc/HEAD/.github/assets/readme-hero.png">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oxc-tsrx"><img alt="npm version" src="https://img.shields.io/npm/v/oxc-tsrx.svg"></a>
-  <a href="https://nodejs.org/en/about/previous-releases"><img alt="supported Node.js versions" src="https://img.shields.io/node/v/oxc-tsrx.svg"></a>
-  <a href="https://github.com/markless-dev/oxc-tsrx/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/markless-dev/oxc-tsrx/actions/workflows/ci.yml/badge.svg?branch=main"></a>
-  <a href="https://github.com/markless-dev/oxc-tsrx/blob/HEAD/LICENSE"><img alt="MIT license" src="https://img.shields.io/npm/l/oxc-tsrx.svg"></a>
+  <a href="https://www.npmjs.com/package/@tsrx/oxc"><img alt="npm version" src="https://img.shields.io/npm/v/@tsrx/oxc"></a>
+  <a href="https://nodejs.org/en/about/previous-releases"><img alt="supported Node.js versions" src="https://img.shields.io/node/v/@tsrx/oxc"></a>
+  <a href="https://github.com/tsrx-org/oxc/actions/workflows/ci.yml"><img alt="CI status" src="https://github.com/tsrx-org/oxc/actions/workflows/ci.yml/badge.svg?branch=main"></a>
+  <a href="https://discord.gg/HCYpT5QHQR"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join%20the%20community-7289da?logo=discord&logoColor=white"></a>
+  <a href="https://github.com/tsrx-org/oxc/blob/HEAD/LICENSE"><img alt="MIT license" src="https://img.shields.io/npm/l/@tsrx/oxc"></a>
 </p>
 
-`oxc-tsrx` gives you three tools for `.tsrx` files:
+The official OXC integration for TSRX. `@tsrx/oxc` gives you three tools for
+`.tsrx` files:
 
 - a **linter**, which warns you about likely mistakes before you run your code
 - a **formatter**, which fixes spacing and punctuation so every file matches
@@ -22,15 +24,15 @@ and `@for` for showing something only sometimes, or once per item in a list.
 [OXC](https://oxc.rs) is a set of fast tools for JavaScript and TypeScript,
 written in Rust. This package teaches them to read `.tsrx` too.
 
-_OXC for TSRX is an independent community project. It is not affiliated with,
-endorsed by, or a product of VoidZero or the OXC team._
+_OXC for TSRX is the official OXC integration maintained by the TSRX project. It
+is not affiliated with, endorsed by, or a product of VoidZero or the OXC team._
 
 [**Docs**](https://compiled.run/oxc-tsrx) &nbsp;·&nbsp; [**Getting started**](https://compiled.run/oxc-tsrx/guide/getting-started) &nbsp;·&nbsp; [**Playground**](https://compiled.run/oxc-tsrx/playground)
 
 ## Install
 
 ```sh
-npm install --save-dev oxc-tsrx
+npm install --save-dev @tsrx/oxc
 ```
 
 That is the whole setup, for the command line and for your editor. You get
@@ -75,7 +77,7 @@ build tool reads `.tsrx` as plain TypeScript and stops at the first `@{`.
 
 ## In your editor
 
-Install the official OXC extension, `oxc.oxc-vscode`. With `oxc-tsrx` in the
+Install the official OXC extension, `oxc.oxc-vscode`. With `@tsrx/oxc` in the
 project there is nothing else to install or configure, and your editor
 underlines the same problems the terminal reports. One catch: the TSRX
 toolchain's own extension owns `.tsrx`, and the OXC extension lists no
@@ -86,9 +88,9 @@ the session. See the [editor guide](https://compiled.run/oxc-tsrx/integrations/e
 ## Using it from your own code
 
 ```js
-import { parseSync } from "oxc-tsrx/parser";
-import { defineConfig } from "oxc-tsrx/lint";
-import { format } from "oxc-tsrx/format";
+import { parseSync } from "@tsrx/oxc/parser";
+import { defineConfig } from "@tsrx/oxc/lint";
+import { format } from "@tsrx/oxc/format";
 ```
 
 The parser hands back the structure of your file and the formatter hands back
@@ -101,7 +103,7 @@ Framework compilers that currently call `@tsrx/core`'s parser can use the
 compatibility facade from the same package:
 
 ```js
-import { parseModule } from "oxc-tsrx/tsrx-core-compat";
+import { parseModule } from "@tsrx/oxc/tsrx-core-compat";
 ```
 
 It preserves TypeScript fields and supplies the source locations, directive
@@ -118,7 +120,7 @@ editor both say when they have done that, and
 
 `oxc-tsrx-lint`, the standalone Rust command, has no Node.js to run a plugin in,
 so it refuses `jsPlugins` and names `oxlint` as the command that can.
-`oxc-tsrx/lint/plugins-dev` is for *writing* a plugin, since it re-exports the
+`@tsrx/oxc/lint/plugins-dev` is for *writing* a plugin, since it re-exports the
 `RuleTester` from `oxlint`. See [Custom JavaScript
 plugins](https://compiled.run/oxc-tsrx/integrations/custom-js-plugins).
 
@@ -131,10 +133,10 @@ plugins](https://compiled.run/oxc-tsrx/integrations/custom-js-plugins).
 - [Limitations](https://compiled.run/oxc-tsrx/reference/limitations): what is not claimed yet.
 - [Provider protocol](https://compiled.run/oxc-tsrx/architecture/provider-protocol): the `oxc.provider` block, what reads it today, and how a plain install reaches released hosts.
 
-`oxc-tsrx` is the only package to depend on. The eight `@oxc-tsrx/native-*`
+`@tsrx/oxc` is the only package to depend on. The eight `@tsrx/oxc-*`
 packages are platform binaries in `optionalDependencies`, and you never name one
 yourself.
 
 ## License
 
-[MIT](https://github.com/markless-dev/oxc-tsrx/blob/HEAD/LICENSE).
+[MIT](https://github.com/tsrx-org/oxc/blob/HEAD/LICENSE).

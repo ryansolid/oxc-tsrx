@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: Every flag accepted by oxc-tsrx and oxc-tsrx-fmt, with exit codes and environment variables.
+description: Every flag the @tsrx/oxc CLI accepts (oxc-tsrx and oxc-tsrx-fmt), with exit codes and environment variables.
 ---
 
 # CLI Reference
@@ -14,12 +14,12 @@ flag, and the sentence underneath says what that combination does.
 
 At least one file is required, and files matching your `ignorePatterns` are
 skipped. Calling a native binary directly means explicit file paths only:
-directory walking and glob expansion belong to the `oxc-tsrx` npm commands and
+directory walking and glob expansion belong to the `@tsrx/oxc` npm commands and
 to Vite+. An unsupported option is an error, never an ignored flag.
 
 ## What a plain install puts on your path
 
-`npm install --save-dev oxc-tsrx@latest` is the whole setup for the command line
+`npm install --save-dev @tsrx/oxc@latest` is the whole setup for the command line
 and for the editor. Vite+ needs one more command; see
 [the minimum steps per host](/guide/getting-started#the-minimum-steps-per-host).
 The install links seven commands into `node_modules/.bin`:
@@ -74,7 +74,7 @@ subcommand names the bad word, prints the usage block, and exits 2.
 ### What `setup` writes, and what it only checks
 
 Three of the four slots are packages in `node_modules`. The fourth is one
-setting in your own tree: `"oxc.path.oxlint": "node_modules/oxc-tsrx/bin/oxlint"`
+setting in your own tree: `"oxc.path.oxlint": "node_modules/@tsrx/oxc/bin/oxlint"`
 in `.vscode/settings.json`, written only when `node_modules/.bin/oxlint` does not
 already resolve into this package. The key is merged without disturbing another
 key or a comment, never overwrites a value you set, and `remove` takes back
@@ -130,8 +130,8 @@ npx oxc-tsrx setup --workspace-root .
 The path is resolved from your working directory, like `--project`, and it has
 to be a real directory that contains your project. The value is written relative
 to the folder you name, so a root two levels up gets
-`packages/app/node_modules/oxc-tsrx/bin/oxlint` rather than
-`node_modules/oxc-tsrx/bin/oxlint`. `remove` follows the receipt back to that
+`packages/app/node_modules/@tsrx/oxc/bin/oxlint` rather than
+`node_modules/@tsrx/oxc/bin/oxlint`. `remove` follows the receipt back to that
 same folder.
 
 One caveat the command prints for you: a multi-root window resolves a relative

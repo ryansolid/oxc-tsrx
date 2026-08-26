@@ -1,5 +1,5 @@
 {
-  "name": "@oxc-tsrx/test-fixtures",
+  "name": "@tsrx/oxc-test-fixtures",
   "private": true,
   "description": "Exact-pinned third-party fixtures for the black-box test, benchmark, and editor proof suites. Not published.",
   "devDependencies": {

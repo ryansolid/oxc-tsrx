@@ -8,7 +8,7 @@
     "nativeTarget": "aarch64-apple-darwin"
   },
   "native": {
-    "packageName": "@oxc-tsrx/native-darwin-arm64",
+    "packageName": "@tsrx/oxc-darwin-arm64",
     "version": "0.1.0",
     "target": "aarch64-apple-darwin",
     "oxcRevision": "8e0ed2ebb96137fb1611cdbd5742d5cb46037d40",

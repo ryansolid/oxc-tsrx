@@ -545,7 +545,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         `${platform.target} VSIX package report`,
       ),
     ]);
-    const expectedNativeFilename = `oxc-tsrx-native-${platform.packageSuffix}-${sourceManifest.version}.tgz`;
+    // npm pack flattens `@tsrx/oxc-<suffix>` to `tsrx-oxc-<suffix>-<version>.tgz`.
+    const expectedNativeFilename = `tsrx-oxc-${platform.packageSuffix}-${sourceManifest.version}.tgz`;
     requireReport(
       nativeReport.packageName === nativePackageName(platform),
       `${platform.target} package`,

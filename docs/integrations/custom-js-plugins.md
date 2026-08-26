@@ -1,11 +1,11 @@
 ---
 title: Custom JavaScript plugins
-description: Write a custom lint rule with the oxlint that oxc-tsrx installs and run it on .tsrx files, with positions in your authored source.
+description: Write a custom lint rule with the oxlint that @tsrx/oxc installs and run it on .tsrx files, with positions in your authored source.
 ---
 
 # Custom JavaScript plugins
 
-Installing `oxc-tsrx` puts an `oxlint` on your PATH that already lints `.tsrx`.
+Installing `@tsrx/oxc` puts an `oxlint` on your PATH that already lints `.tsrx`.
 Write one ordinary Oxlint JavaScript plugin, list it in `.oxlintrc.json`, and it
 runs on `.js`, `.ts`, `.jsx`, and `.tsx` directly and on `.tsrx` through a TSX
 copy, reporting at the line and column you wrote. Two things to know first:
@@ -26,7 +26,7 @@ You need Node.js 20.19 or newer, and one install
 
 <!-- pm-install -->
 ```sh
-npm install oxc-tsrx@latest
+npm install @tsrx/oxc@latest
 ```
 
 Save this as `src/TaskList.tsrx`:
@@ -70,7 +70,7 @@ block has its own node type, shaped like the JSX nodes you already know:
 
 Everything else uses the same shapes as `oxc-parser`; the [Parsing
 guide](/guide/parsing) covers the tree, and
-[`explore-tsrx-ast.mjs`](https://github.com/markless-dev/oxc-tsrx/blob/main/examples/custom-js-plugins/explore-tsrx-ast.mjs)
+[`explore-tsrx-ast.mjs`](https://github.com/tsrx-org/oxc/blob/main/examples/custom-js-plugins/explore-tsrx-ast.mjs)
 prints the node types in a file of your own.
 
 ## Write an oxlint JavaScript plugin
@@ -81,7 +81,7 @@ An Oxlint plugin is an ES module exporting `{ meta, rules }`, where each rule's
 the prefix the rules are configured under.
 
 Copy
-[`oxlint-demo-plugin.mjs`](https://github.com/markless-dev/oxc-tsrx/blob/main/examples/custom-js-plugins/oxlint-demo-plugin.mjs)
+[`oxlint-demo-plugin.mjs`](https://github.com/tsrx-org/oxc/blob/main/examples/custom-js-plugins/oxlint-demo-plugin.mjs)
 into your project. It has one rule, `require-keyed-map`, which visits
 `CallExpression` and reports JSX returned from `.map()` without a `key`.
 
@@ -98,7 +98,7 @@ this as `.oxlintrc.json`:
 ```
 
 The rule needs an ordinary file to run on, so add
-[`src/TaskRow.tsx`](https://github.com/markless-dev/oxc-tsrx/blob/main/examples/custom-js-plugins/src/TaskRow.tsx),
+[`src/TaskRow.tsx`](https://github.com/tsrx-org/oxc/blob/main/examples/custom-js-plugins/src/TaskRow.tsx),
 a React component whose `.map()` call has the missing-key problem.
 
 <!-- terminal-demo:custom-plugins-oxlint-plugin -->
@@ -139,7 +139,7 @@ Two things differ, and both are Vite+'s doing rather than this package's.
 
 **`node_modules/.bin/oxlint` belongs to Vite+.** Running it exits 1 and tells
 you to run `vp lint`. Do that, or use this package's own
-`node_modules/oxc-tsrx/bin/oxlint`. The editor needs nothing further: `setup`
+`node_modules/@tsrx/oxc/bin/oxlint`. The editor needs nothing further: `setup`
 points the extension at this package.
 
 **`vp lint` does not read `.oxlintrc.json`.** Vite+ keeps lint configuration in
@@ -147,7 +147,7 @@ the `lint` block of `vite.config.ts`, so a rule you want on both surfaces is
 declared twice. Add `{ name: "house-rules", specifier: "./house-rules.mjs" }` to
 `lint.jsPlugins` and your rule to `lint.rules`, deleting nothing the scaffold
 wrote. [The finished
-file](https://github.com/markless-dev/oxc-tsrx/blob/main/examples/custom-js-plugins/vite-plus/vite.config.ts)
+file](https://github.com/tsrx-org/oxc/blob/main/examples/custom-js-plugins/vite-plus/vite.config.ts)
 is in the examples directory.
 
 Making `.tsrx` a *language* in the editor is a separate job owned by the TSRX
@@ -191,12 +191,12 @@ where the control blocks have already become ordinary statements.
 
 The repository carries a local ESLint adapter that does hand a rule the authored
 tree, in
-[`examples/custom-js-plugins`](https://github.com/markless-dev/oxc-tsrx/tree/main/examples/custom-js-plugins).
+[`examples/custom-js-plugins`](https://github.com/tsrx-org/oxc/tree/main/examples/custom-js-plugins).
 It is AST-only, since the parser API exposes no token stream. Running the same
 rule inside Oxlint waits on OXC PR
 [#24262](https://github.com/oxc-project/oxc/pull/24262), a draft as of
 2026-07-26.
 
 The runnable version of this page is in
-[`examples/custom-js-plugins`](https://github.com/markless-dev/oxc-tsrx/tree/main/examples/custom-js-plugins).
+[`examples/custom-js-plugins`](https://github.com/tsrx-org/oxc/tree/main/examples/custom-js-plugins).
 Oxlint is pinned and tested at 1.74.0. Last audited: 2026-07-27.

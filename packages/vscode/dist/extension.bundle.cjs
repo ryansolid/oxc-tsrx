@@ -22571,7 +22571,7 @@ function nativeTargetForHost(os, cpu, libc = void 0) {
 	return target;
 }
 function nativePackageName(target) {
-	return `@oxc-tsrx/native-${target.packageSuffix}`;
+	return `@tsrx/oxc-${target.packageSuffix}`;
 }
 var NATIVE_TARGETS;
 var init_native_targets = __esmMin((() => {

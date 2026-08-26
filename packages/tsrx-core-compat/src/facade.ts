@@ -1328,7 +1328,7 @@ function materializeCompatibilityProgram(program, source, filename, loose, posit
 }
 
 function missingProgramError(filename) {
-  const error = new SyntaxError(`oxc-tsrx/parser did not return a Program for ${filename}`) as CompatSyntaxError;
+  const error = new SyntaxError(`@tsrx/oxc/parser did not return a Program for ${filename}`) as CompatSyntaxError;
   error.code = undefined;
   error.pos = undefined;
   error.raisedAt = undefined;
@@ -1460,7 +1460,7 @@ export function normalizeEventName(name) {
 
 export function createTsrxCoreCompat(parser) {
   if (typeof parser?.parseSync !== "function") {
-    throw new TypeError("@oxc-tsrx/tsrx-core-compat requires a parseSync function");
+    throw new TypeError("@tsrx/oxc-core-compat requires a parseSync function");
   }
 
   return Object.freeze({

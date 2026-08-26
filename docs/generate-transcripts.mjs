@@ -260,7 +260,7 @@ const parseBrokenTsrx = `export function Broken() @{
 
 // Must stay identical to the js fence on docs/guide/parsing.md.
 const parseBrokenScript = `import { readFileSync } from "node:fs";
-import { parseSync } from "oxc-tsrx/parser";
+import { parseSync } from "@tsrx/oxc/parser";
 
 const source = readFileSync("src/Broken.tsrx", "utf8");
 const result = parseSync("src/Broken.tsrx", source);
@@ -290,12 +290,12 @@ const eslintDemoPlugin = readPluginExample('demo-lint-plugin.mjs')
 
 // The in-repo adapter imports the parser by relative path so the plugin tests
 // can load it straight from the source tree. A reader who ran
-// `npm install oxc-tsrx` uses the public subpath instead, which is what the page
+// `npm install @tsrx/oxc` uses the public subpath instead, which is what the page
 // says, so swap exactly that one specifier and nothing else.
 const relativeParserImport = '"../../packages/toolchain/dist/parser.js"'
 const tsrxEslintParser = readPluginExample('tsrx-eslint-parser.mjs').replace(
   relativeParserImport,
-  '"oxc-tsrx/parser"',
+  '"@tsrx/oxc/parser"',
 )
 if (tsrxEslintParser.includes(relativeParserImport)) {
   throw new Error(
@@ -341,7 +341,7 @@ const optedOutDemoConfig = `${JSON.stringify(
   2,
 )}\n`
 
-const installedToolchain = { 'node_modules/oxc-tsrx': toolchainPackage }
+const installedToolchain = { 'node_modules/@tsrx/oxc': toolchainPackage }
 
 // ---------- the Vite+ walkthrough sample project ----------
 // The page's step-by-step route from a `vp create` scaffold. Its four files live
@@ -381,8 +381,8 @@ const scaffoldPackageJson = `${JSON.stringify(
     private: true,
     type: 'module',
     devDependencies: {
+      '@tsrx/oxc': '0.6.0',
       '@types/react': '^19.2.17',
-      'oxc-tsrx': '0.6.0',
       typescript: '~6.0.2',
       'vite-plus': '^0.2.6',
     },
@@ -541,7 +541,7 @@ function captureDemo(demo) {
       writeFileSync(absolute, contents)
     }
     // Symlinks let a demo resolve real workspace packages (for example
-    // node_modules/oxc-tsrx) without copying them into the sample.
+    // node_modules/@tsrx/oxc) without copying them into the sample.
     for (const [relative, target] of Object.entries(demo.links ?? {})) {
       const absolute = path.join(workspace, relative)
       mkdirSync(path.dirname(absolute), { recursive: true })
@@ -855,11 +855,11 @@ const demos = {
 
   'custom-plugins-first-run': {
     caption:
-      'Real output, captured at build time. The whole sample project is one src/TaskList.tsrx and an install of oxc-tsrx. There is no configuration file yet.',
+      'Real output, captured at build time. The whole sample project is one src/TaskList.tsrx and an install of @tsrx/oxc. There is no configuration file yet.',
     files: { 'src/TaskList.tsrx': taskListTsrx },
     entries: [
       {
-        comment: 'The oxlint that oxc-tsrx installs already reads .tsrx',
+        comment: 'The oxlint that @tsrx/oxc installs already reads .tsrx',
         command: 'npx oxlint src/TaskList.tsrx',
         runner: 'npxLint',
         args: ['src/TaskList.tsrx'],
@@ -970,7 +970,7 @@ const demos = {
 
   'custom-plugins-vp-setup': {
     caption:
-      'Real output, captured at build time, from a project shaped like a fresh vp create React scaffold with oxc-tsrx installed and none of the TSRX toolchain packages yet. One difference from a real scaffold: setup names the two tsconfig files by absolute path, and the capture rewrites the throwaway project directory away, so they read as bare filenames here.',
+      'Real output, captured at build time, from a project shaped like a fresh vp create React scaffold with @tsrx/oxc installed and none of the TSRX toolchain packages yet. One difference from a real scaffold: setup names the two tsconfig files by absolute path, and the capture rewrites the throwaway project directory away, so they read as bare filenames here.',
     files: {
       ...scaffoldBaseFiles,
       'tsconfig.app.json': scaffoldAppTsconfig(false),
@@ -1028,7 +1028,7 @@ const demos = {
     entries: [
       {
         comment: 'One command, one top-level jsPlugins, both file types',
-        command: 'node_modules/oxc-tsrx/bin/oxlint src',
+        command: 'node_modules/@tsrx/oxc/bin/oxlint src',
         runner: 'npxLint',
         args: ['src'],
         expectExit: 0,
@@ -1048,7 +1048,7 @@ const demos = {
     entries: [
       {
         comment: 'The .tsrx half refuses; exit 2 is the configuration refusal',
-        command: 'node_modules/oxc-tsrx/bin/oxlint src',
+        command: 'node_modules/@tsrx/oxc/bin/oxlint src',
         runner: 'npxLint',
         args: ['src'],
         expectExit: 2,
@@ -1126,7 +1126,7 @@ const demos = {
       'errors.mjs': parseBrokenScript,
     },
     links: {
-      'node_modules/oxc-tsrx': path.join(repoRoot, 'packages', 'toolchain'),
+      'node_modules/@tsrx/oxc': path.join(repoRoot, 'packages', 'toolchain'),
     },
     entries: [
       {

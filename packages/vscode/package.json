@@ -2,17 +2,17 @@
   "name": "oxc-tsrx-vscode",
   "displayName": "OXC for TSRX",
   "version": "0.6.0",
-  "description": "Native Oxlint and Oxfmt editor support for TSRX",
+  "description": "Official OXC editor support for TSRX",
   "homepage": "https://compiled.run/oxc-tsrx",
   "publisher": "thejackshelton",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/compiled-run/oxc-tsrx.git",
+    "url": "git+https://github.com/tsrx-org/oxc.git",
     "directory": "packages/vscode"
   },
   "bugs": {
-    "url": "https://github.com/compiled-run/oxc-tsrx/issues"
+    "url": "https://github.com/tsrx-org/oxc/issues"
   },
   "keywords": [
     "oxc",
@@ -59,7 +59,7 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "dependencies": {
-    "oxc-tsrx": "0.6.0",
+    "@tsrx/oxc": "0.6.0",
     "vscode-languageclient": "10.1.0"
   },
   "contributes": {

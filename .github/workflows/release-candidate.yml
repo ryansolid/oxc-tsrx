@@ -164,7 +164,7 @@ jobs:
         shell: bash
         run: |
           # Ships inside the same native package as the binaries. Without it npm
-          # drops parser.node from the tarball and `oxc-tsrx/parser` fails its
+          # drops parser.node from the tarball and `@tsrx/oxc/parser` fails its
           # integrity check on every consumer, which is exactly what 0.1.0 did.
           node scripts/build-parser-native.ts \
             --target "$TARGET" \
@@ -285,8 +285,10 @@ jobs:
             await readFile("packages/vscode/package.json", "utf8"),
           );
           const extensionId = `${extensionManifest.publisher}.${extensionManifest.name}`;
+          // npm pack flattens `@tsrx/oxc-<suffix>` to `tsrx-oxc-<suffix>-<version>.tgz`,
+          // the same rule publish.yml and scripts/vsix-archive.ts spell out.
           const expectedNative = NATIVE_TARGETS.map(
-            ({ packageSuffix }) => `oxc-tsrx-native-${packageSuffix}-${version}.tgz`,
+            ({ packageSuffix }) => `tsrx-oxc-${packageSuffix}-${version}.tgz`,
           );
           const expectedVsix = NATIVE_TARGETS.map(
             ({ vscodeTarget }) => `oxc-tsrx-vscode-${version}-${vscodeTarget}.vsix`,
@@ -317,7 +319,7 @@ jobs:
                 JSON.parse,
               ),
             ]);
-            const nativeFilename = `oxc-tsrx-native-${platform.packageSuffix}-${version}.tgz`;
+            const nativeFilename = `tsrx-oxc-${platform.packageSuffix}-${version}.tgz`;
             const vscodeFilename = `oxc-tsrx-vscode-${version}-${platform.vscodeTarget}.vsix`;
 
             assert.equal(native.packageName, nativePackageName(platform));
@@ -385,11 +387,11 @@ jobs:
           const version = JSON.parse(await readFile("package.json", "utf8")).version;
           const artifact = (name) => `file:${resolve("release", name)}`;
           const dependencies = {
-            "oxc-tsrx": artifact(`oxc-tsrx-${version}.tgz`),
+            "@tsrx/oxc": artifact(`tsrx-oxc-${version}.tgz`),
           };
           for (const target of NATIVE_TARGETS) {
             dependencies[nativePackageName(target)] = artifact(
-              `oxc-tsrx-native-${target.packageSuffix}-${version}.tgz`,
+              `tsrx-oxc-${target.packageSuffix}-${version}.tgz`,
             );
           }
           await writeFile(
@@ -407,7 +409,7 @@ jobs:
           );
           NODE
           # A real install into the throwaway prefix, not --package-lock-only.
-          # `npm sbom` reports ESBOMPROBLEMS "missing: oxc-tsrx@file:..." when the
+          # `npm sbom` reports ESBOMPROBLEMS "missing: @tsrx/oxc@file:..." when the
           # tree is only locked and never materialised, so the lock-only pair
           # produced an empty SBOM and a failed step. This prefix holds nothing
           # but the nine release tarballs, so installing it costs about a second.
@@ -435,7 +437,7 @@ jobs:
           assert.equal(sbom.bomFormat, "CycloneDX");
           const names = new Set((sbom.components ?? []).map(({ name }) => name));
           for (const name of [
-            "oxc-tsrx",
+            "@tsrx/oxc",
             ...NATIVE_TARGETS.map(nativePackageName),
           ]) {
             assert.ok(names.has(name), `npm SBOM is missing ${name}`);

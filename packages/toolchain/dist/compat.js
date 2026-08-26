@@ -5,7 +5,18 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { homedir } from "node:os";
 //#region src/compat.ts
 const COMPATIBILITY_SCHEMA = 1;
+/**
+* The provider id, which is also this package's command name. It is written
+* into every facade's `oxcTsrxCompatibility.provider`, compared against on the
+* way back out, and named in the prose a user is told to type. It is *not* the
+* npm package name and never was: renaming the package left the id alone so
+* that facades a previous release wrote are still recognised as ours.
+*/
 const PROVIDER = "oxc-tsrx";
+/** The published npm package name, which is what resolution and install paths speak. */
+const PACKAGE_NAME = "@tsrx/oxc";
+/** `PACKAGE_NAME` as path segments: a scoped name is two directories under `node_modules`. */
+const PACKAGE_DIRECTORY = Object.freeze(PACKAGE_NAME.split("/"));
 const DIRECT_DEPENDENCY_FIELDS = [
 	"dependencies",
 	"devDependencies",
@@ -15,19 +26,19 @@ const SLOTS = Object.freeze([
 	Object.freeze({
 		name: "oxc-parser",
 		capability: "parser",
-		exportPath: "oxc-tsrx/parser",
+		exportPath: "@tsrx/oxc/parser",
 		binary: null
 	}),
 	Object.freeze({
 		name: "oxlint",
 		capability: "lint",
-		exportPath: "oxc-tsrx/lint",
+		exportPath: "@tsrx/oxc/lint",
 		binary: "oxlint"
 	}),
 	Object.freeze({
 		name: "oxfmt",
 		capability: "format",
-		exportPath: "oxc-tsrx/format",
+		exportPath: "@tsrx/oxc/format",
 		binary: "oxfmt"
 	})
 ]);
@@ -455,7 +466,7 @@ async function detectPackageManager(projectRoot, userAgent = process.env.npm_con
 	return "unknown";
 }
 function providerSelection(manifest) {
-	return DIRECT_DEPENDENCY_FIELDS.find((field) => typeof manifest[field]?.[PROVIDER] === "string");
+	return DIRECT_DEPENDENCY_FIELDS.find((field) => typeof manifest[field]?.[PACKAGE_NAME] === "string");
 }
 function directlySelected(manifest, packageName) {
 	return DIRECT_DEPENDENCY_FIELDS.some((field) => typeof manifest[field]?.[packageName] === "string");
@@ -469,16 +480,16 @@ async function installedProvider(projectRoot) {
 	const projectManifestPath = join(projectRoot, "package.json");
 	const projectManifest = await readJson(projectManifestPath);
 	const selectedFrom = providerSelection(projectManifest);
-	if (!selectedFrom) throw new Error(`${PROVIDER} must be a direct dependency or devDependency in ${projectManifestPath}`);
+	if (!selectedFrom) throw new Error(`${PACKAGE_NAME} must be a direct dependency or devDependency in ${projectManifestPath}`);
 	const require = createRequire(projectManifestPath);
 	let providerManifestPath;
 	try {
-		providerManifestPath = require.resolve(`${PROVIDER}/package.json`);
+		providerManifestPath = require.resolve(`${PACKAGE_NAME}/package.json`);
 	} catch {
-		throw new Error(`${PROVIDER} is declared but not installed under ${projectRoot}; install dependencies first`);
+		throw new Error(`${PACKAGE_NAME} is declared but not installed under ${projectRoot}; install dependencies first`);
 	}
 	const manifest = await readJson(providerManifestPath);
-	if (manifest.name !== PROVIDER || typeof manifest.version !== "string") throw new Error(`resolved ${providerManifestPath} is not a valid ${PROVIDER} package`);
+	if (manifest.name !== PACKAGE_NAME || typeof manifest.version !== "string") throw new Error(`resolved ${providerManifestPath} is not a valid ${PACKAGE_NAME} package`);
 	return {
 		manifest,
 		manifestPath: providerManifestPath,
@@ -524,11 +535,11 @@ import { pathToFileURL } from "node:url";
 
 try {
   const require = createRequire(import.meta.url);
-  const manifestPath = require.resolve("oxc-tsrx/package.json");
+  const manifestPath = require.resolve("@tsrx/oxc/package.json");
   const manifest = require(manifestPath);
   const declared = typeof manifest.bin === "string" ? manifest.bin : manifest.bin?.[${JSON.stringify(binary)}];
   if (typeof declared !== "string" || declared.length === 0) {
-    throw new Error("oxc-tsrx does not declare the ${binary} binary");
+    throw new Error("@tsrx/oxc does not declare the ${binary} binary");
   }
   await import(pathToFileURL(resolve(dirname(manifestPath), declared)).href);
 } catch (error) {
@@ -654,9 +665,16 @@ async function replaceOwnedFacade(status, providerVersion, modules) {
 * For all of those the file that stats *is* the launcher, so nothing above it
 * belongs to this package and its target is only readable inline. Measured on a
 * real pnpm install: the shim is a script whose `exec` line names
-* `oxc-tsrx/bin/oxlint`.
+* `@tsrx/oxc/bin/oxlint`.
+*
+* Both spellings are accepted. The package moved from `oxc-tsrx` to
+* `@tsrx/oxc`, and an upgrade in place leaves the old launcher sitting in
+* `.bin` until the next full install rewrites it. That launcher still runs this
+* package, so reading it as foreign would make every report cry wolf at a tree
+* that is correctly wired - which is the exact failure this text match exists
+* to prevent.
 */
-const PROVIDER_LAUNCHER_TEXT = /oxc-tsrx[\\/]bin[\\/]oxlint/u;
+const PROVIDER_LAUNCHER_TEXT = /(?:@tsrx[\\/]oxc|oxc-tsrx)[\\/]bin[\\/]oxlint/u;
 /** Nothing a package manager writes into `.bin` is anywhere near this big. */
 const LAUNCHER_TEXT_LIMIT = 65536;
 /**
@@ -755,10 +773,10 @@ async function inspectLinterShim(modules, providerRoot) {
 * The value to write, always relative to the folder the settings file sits in,
 * because that is the folder the editor has to have open for the file to be read
 * at all. With no `--workspace-root` that folder is the project root and this is
-* the same `node_modules/oxc-tsrx/bin/oxlint` it has always been.
+* the installed copy at `node_modules/@tsrx/oxc/bin/oxlint`.
 */
 async function editorSettingValue(settingsRoot, projectRoot, providerRoot) {
-	const linked = join(projectRoot, "node_modules", PROVIDER, "bin", "oxlint");
+	const linked = join(projectRoot, "node_modules", ...PACKAGE_DIRECTORY, "bin", "oxlint");
 	if (await exists(linked)) return toPosix(relative(settingsRoot, linked));
 	const offset = relative(settingsRoot, join(providerRoot, "bin", "oxlint"));
 	return offset.startsWith("..") || isAbsolute(offset) ? join(providerRoot, "bin", "oxlint") : toPosix(offset);
@@ -784,7 +802,7 @@ async function readEditorReceipt(modules) {
 */
 async function recoverWrittenSettingsRoot(projectRoot) {
 	const candidates = [projectRoot, ...(await candidateWorkspaceRoots(projectRoot)).map((candidate) => candidate.path)];
-	const installed = join(projectRoot, "node_modules", PROVIDER);
+	const installed = join(projectRoot, "node_modules", ...PACKAGE_DIRECTORY);
 	for (const directory of candidates) {
 		const value = (await readJson(join(directory, EDITOR_SLOT.directory, EDITOR_SLOT.file)).catch(() => null))?.[EDITOR_SLOT.key];
 		if (typeof value !== "string" || value.length === 0) continue;

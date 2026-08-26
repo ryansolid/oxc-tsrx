@@ -1,8 +1,8 @@
-// Install commands in the documentation say `oxc-tsrx@latest` (owner decision,
+// Install commands in the documentation say `@tsrx/oxc@latest` (owner decision,
 // 2026-08-14). This policy has now flipped in each direction more than once,
 // so here is the whole history in one place:
 //
-// - Unpinned (`npm install --save-dev oxc-tsrx`) is what comparable projects
+// - Unpinned (`npm install --save-dev @tsrx/oxc`) is what comparable projects
 //   print, but pnpm 11's release-age hold once resolved a bare install to the
 //   broken 0.1.0, which forced the first flip to exact pins.
 // - Exact pins never rot in-repo (scripts/sync-version.ts rewrote them each
@@ -41,31 +41,31 @@ const readerFacingSources = [
   "docs/terminal-transcripts.json",
 ];
 
-test("any documented oxc-tsrx version pin names the version this repository ships", async () => {
+test("any documented @tsrx/oxc version pin names the version this repository ships", async () => {
   const shipped = JSON.parse(await readFile(join(root, "package.json"), "utf8")).version;
   assert.match(shipped, /^\d+\.\d+\.\d+$/, "the package must declare a plain semver version");
 
   for (const relativePath of readerFacingSources) {
     const source = await readFile(join(root, relativePath), "utf8");
-    for (const match of source.matchAll(/oxc-tsrx@(\d+\.\d+\.\d+)/g)) {
+    for (const match of source.matchAll(/@tsrx\/oxc@(\d+\.\d+\.\d+)/g)) {
       assert.equal(
         match[1],
         shipped,
-        `${relativePath} sends readers to oxc-tsrx@${match[1]} while this repository ships ${shipped}`,
+        `${relativePath} sends readers to @tsrx/oxc@${match[1]} while this repository ships ${shipped}`,
       );
     }
   }
 });
 
 test("the documented install commands use the @latest dist-tag, never an exact pin", async () => {
-  const installLine = /(?:npm install|pnpm add|yarn add|bun add|vp install)[^\n`]*\boxc-tsrx@([^\s`]+)/g;
+  const installLine = /(?:npm install|pnpm add|yarn add|bun add|vp install)[^\n`]*@tsrx\/oxc@([^\s`]+)/g;
   for (const relativePath of readerFacingSources) {
     const source = await readFile(join(root, relativePath), "utf8");
     for (const match of source.matchAll(installLine)) {
       assert.equal(
         match[1],
         "latest",
-        `${relativePath} sends readers to oxc-tsrx@${match[1]}; the documented install form is oxc-tsrx@latest — flipping back to pins is a policy change that starts in this file's header`,
+        `${relativePath} sends readers to @tsrx/oxc@${match[1]}; the documented install form is @tsrx/oxc@latest — flipping back to pins is a policy change that starts in this file's header`,
       );
     }
   }

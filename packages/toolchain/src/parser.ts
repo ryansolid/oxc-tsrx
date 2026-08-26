@@ -9,7 +9,7 @@ import { NATIVE_TARGETS, nativePackageName, nativeTargetForHost } from "./native
 const require = createRequire(import.meta.url);
 const PACKAGE_VERSION = "0.6.0";
 const parserManifest = Object.freeze({
-  name: "oxc-tsrx",
+  name: "@tsrx/oxc",
   version: PACKAGE_VERSION,
   dependencies: Object.freeze({ "@oxc-project/types": "0.140.0" }),
   optionalDependencies: Object.freeze(

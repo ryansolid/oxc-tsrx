@@ -1,16 +1,26 @@
 # Publish runbook
 
 Rewritten 2026-07-25 for the nine-package layout and for OIDC trusted
-publishing. This is the operator checklist for putting `oxc-tsrx` and its eight
+publishing. This is the operator checklist for putting `@tsrx/oxc` and its eight
 platform packages on npm. It records the traps that are specific to shipping
 per-platform native packages, because most of them fail quietly.
 
-**This has been executed.** All nine names exist on npm at 0.1.0 through 0.1.4,
-`latest` points at 0.1.4, and `oxc-tsrx@0.1.4` carries a SLSA provenance
-attestation, which only a trusted publish from CI produces. Checked against the
-registry on 2026-07-28. Sections written for a first publish of a name that
-does not exist yet are marked below; they are history now, and they stay
-because the next new package name will need them again.
+**Read this first: the 2026-08 rename resets the one-time setup.** The
+repository moved to `tsrx-org/oxc` and every published name changed: the old
+`oxc-tsrx` is now `@tsrx/oxc`, and the eight `@oxc-tsrx/native-<suffix>`
+packages are now `@tsrx/oxc-<suffix>`. All nine new names are unpublished, so
+[the one-time setup only the owner can do](#the-one-time-setup-only-the-owner-can-do)
+below is live again rather than historical: each new name has to be bootstrapped
+onto the registry by hand and then bound to a trusted publisher pointing at
+`tsrx-org/oxc`. Until that is done, `publish.yml` cannot authenticate for any of
+the nine.
+
+**The old names have been through this before.** `oxc-tsrx` and the eight
+`@oxc-tsrx/native-*` packages exist on npm at 0.1.0 through 0.1.4, `latest`
+points at 0.1.4, and `oxc-tsrx@0.1.4` carries a SLSA provenance attestation,
+which only a trusted publish from CI produces. Checked against the registry on
+2026-07-28. Those records are kept below as evidence that the mechanism works;
+they say nothing about the `@tsrx/*` names.
 
 An earlier version of this runbook described thirteen packages. Four of them
 (`@oxc-tsrx/runtime`, `@oxc-tsrx/parser`, `oxlint-tsrx`, `oxfmt-tsrx`) were
@@ -23,15 +33,21 @@ impossible publish.
 Nine packages, and `docs/releasing/v0.1.0-launch.json` is the source of truth
 for both the set and the order:
 
-1. `@oxc-tsrx/native-darwin-arm64`
-2. `@oxc-tsrx/native-darwin-x64`
-3. `@oxc-tsrx/native-linux-arm64-gnu`
-4. `@oxc-tsrx/native-linux-x64-gnu`
-5. `@oxc-tsrx/native-linux-arm64-musl`
-6. `@oxc-tsrx/native-linux-x64-musl`
-7. `@oxc-tsrx/native-win32-arm64-msvc`
-8. `@oxc-tsrx/native-win32-x64-msvc`
-9. `oxc-tsrx`
+1. `@tsrx/oxc-darwin-arm64`
+2. `@tsrx/oxc-darwin-x64`
+3. `@tsrx/oxc-linux-arm64-gnu`
+4. `@tsrx/oxc-linux-x64-gnu`
+5. `@tsrx/oxc-linux-arm64-musl`
+6. `@tsrx/oxc-linux-x64-musl`
+7. `@tsrx/oxc-win32-arm64-msvc`
+8. `@tsrx/oxc-win32-x64-msvc`
+9. `@tsrx/oxc`
+
+npm pack flattens those names: `@tsrx/oxc` packs as `tsrx-oxc-<version>.tgz`
+and `@tsrx/oxc-<suffix>` as `tsrx-oxc-<suffix>-<version>.tgz`. That is the one
+naming rule `publish.yml`, `release-candidate.yml` and
+`scripts/vsix-archive.ts` all spell out, and the candidate matrix check fails on
+any artifact that does not match it.
 
 Plus eight target-specific VSIX files for `thejackshelton.oxc-tsrx-vscode`,
 which go to the VS Code Marketplace, not to npm, and are covered by
@@ -39,7 +55,7 @@ which go to the VS Code Marketplace, not to npm, and are covered by
 
 ### The order is not negotiable
 
-`oxc-tsrx` last, always. It lists all eight platform packages in
+`@tsrx/oxc` last, always. It lists all eight platform packages in
 `optionalDependencies`, and npm resolves those at install time against whatever
 is on the registry at that moment. Publish the parent first and you open a
 window where an install succeeds, quietly installs no binary, and then fails at
@@ -51,18 +67,18 @@ optional dependency as normal.
 
 `.github/workflows/publish.yml` reads the order out of the launch contract and
 refuses to run if the contract does not list exactly nine names ending in
-`oxc-tsrx`, so you do not have to hold the order in your head. You do have to
+`@tsrx/oxc`, so you do not have to hold the order in your head. You do have to
 not bypass the workflow.
 
 ### Version lockstep
 
-All nine publish at the same version. `oxc-tsrx` pins each platform package to
+All nine publish at the same version. `@tsrx/oxc` pins each platform package to
 an exact version:
 
 ```json
 "optionalDependencies": {
-  "@oxc-tsrx/native-darwin-arm64": "0.1.0",
-  "@oxc-tsrx/native-darwin-x64": "0.1.0"
+  "@tsrx/oxc-darwin-arm64": "0.6.0",
+  "@tsrx/oxc-darwin-x64": "0.6.0"
 }
 ```
 
@@ -95,8 +111,8 @@ about thirty, so the workflow runs `bumpp` on the root manifest only and then
 hands the rest to `scripts/sync-version.ts`.
 
 `sync-version.mjs` propagates the root version to 76 declared locations across
-26 files: the eight `@oxc-tsrx/native-*` pins in `packages/toolchain`, the two
-`oxc-tsrx` pins in `packages/tsrx-core-compat` and `packages/vscode`, the three
+26 files: the eight `@tsrx/oxc-*` pins in `packages/toolchain`, the two
+`@tsrx/oxc` pins in `packages/tsrx-core-compat` and `packages/vscode`, the three
 package manifests' own `version` fields, the Cargo workspace version,
 `packages/toolchain/src/parser.ts` and the committed build output at
 `packages/toolchain/dist/parser.js`, `packages/toolchain/parser.node.json`, the scaffold fixture in
@@ -147,7 +163,7 @@ broken package:
 - `docs/terminal-transcripts.json` holds two `oxc-tsrx <version>` strings that
   are live CLI output. Refresh with `pnpm run build:native` then
   `pnpm run docs:transcripts`. `tests/site/documented-version-pin.test.mjs`
-  reads this file but only matches the `oxc-tsrx@N.N.N` form, which the
+  reads this file but only matches the `@tsrx/oxc@N.N.N` form, which the
   transcripts do not use, so a stale value is cosmetic.
 - `docs/acceptance/performance-report.json` carries the version inside its
   `versionsIdentity` string and comes from a full comparative benchmark run.
@@ -229,7 +245,7 @@ What makes it work:
 - A GitHub-hosted runner. Self-hosted runners are not supported for trusted
   publishing.
 - `repository.url` in each manifest must match the GitHub repository exactly.
-  Every manifest here says `git+https://github.com/markless-dev/oxc-tsrx.git`,
+  Every manifest here says `git+https://github.com/tsrx-org/oxc.git`,
   including the generated platform manifests from `scripts/package-native.ts`.
 
 Provenance comes for free. npm generates and publishes a provenance attestation
@@ -246,12 +262,23 @@ and no `NPM_TOKEN`.
 
 ## The one-time setup only the owner can do
 
-**Already done for the nine names that ship today, and a template for the next
-one.** All nine exist on the registry and `oxc-tsrx@0.1.4` carries a provenance
-attestation, which a laptop publish cannot produce, so the trusted publisher is
-configured and working. Read on only if you are adding a new package name: a
-name that has never been published cannot be configured as a trusted publisher,
-and that is the trap this section exists for.
+**Required again, right now.** The nine names that ship today are the `@tsrx/*`
+names, and none of them has ever been published. The old `oxc-tsrx` and
+`@oxc-tsrx/native-*` names were bootstrapped and bound this way in 0.1.0, and
+`oxc-tsrx@0.1.4` carries a provenance attestation, which a laptop publish cannot
+produce — that is the proof the procedure below works, not a reason to skip it.
+A name that has never been published cannot be configured as a trusted
+publisher, and that is the trap this section exists for.
+
+Two things changed at once in the 2026-08 rename, and both invalidate the old
+configuration:
+
+- the nine package names are new, so there is nothing on the registry to attach
+  a trusted publisher to until step 1 runs;
+- the repository is now `tsrx-org/oxc`, so any trusted publisher still naming
+  the old repository would refuse the publish even on a name that did exist.
+  `scripts/trust-publishers.sh` revokes an existing binding before creating the
+  new one for exactly this case.
 
 npm configures a trusted publisher **on a package that already exists**. Both
 the [npm trust CLI docs](https://docs.npmjs.com/cli/v11/commands/npm-trust)
@@ -287,11 +314,11 @@ because a laptop cannot produce it:
 ```sh
 cd "$(mktemp -d)"
 for name in \
-  @oxc-tsrx/native-darwin-arm64 @oxc-tsrx/native-darwin-x64 \
-  @oxc-tsrx/native-linux-arm64-gnu @oxc-tsrx/native-linux-x64-gnu \
-  @oxc-tsrx/native-linux-arm64-musl @oxc-tsrx/native-linux-x64-musl \
-  @oxc-tsrx/native-win32-arm64-msvc @oxc-tsrx/native-win32-x64-msvc \
-  oxc-tsrx
+  @tsrx/oxc-darwin-arm64 @tsrx/oxc-darwin-x64 \
+  @tsrx/oxc-linux-arm64-gnu @tsrx/oxc-linux-x64-gnu \
+  @tsrx/oxc-linux-arm64-musl @tsrx/oxc-linux-x64-musl \
+  @tsrx/oxc-win32-arm64-msvc @tsrx/oxc-win32-x64-msvc \
+  @tsrx/oxc
 do
   mkdir -p bootstrap && cd bootstrap
   cat > package.json <<JSON
@@ -301,7 +328,7 @@ do
   "private": false,
   "description": "Name reservation for trusted publishing setup. Do not install.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/markless-dev/oxc-tsrx.git" },
+  "repository": { "type": "git", "url": "git+https://github.com/tsrx-org/oxc.git" },
   "publishConfig": { "access": "public", "provenance": false }
 }
 JSON
@@ -331,20 +358,20 @@ is enough for nine packages:
 
 ```sh
 for name in \
-  @oxc-tsrx/native-darwin-arm64 @oxc-tsrx/native-darwin-x64 \
-  @oxc-tsrx/native-linux-arm64-gnu @oxc-tsrx/native-linux-x64-gnu \
-  @oxc-tsrx/native-linux-arm64-musl @oxc-tsrx/native-linux-x64-musl \
-  @oxc-tsrx/native-win32-arm64-msvc @oxc-tsrx/native-win32-x64-msvc \
-  oxc-tsrx
+  @tsrx/oxc-darwin-arm64 @tsrx/oxc-darwin-x64 \
+  @tsrx/oxc-linux-arm64-gnu @tsrx/oxc-linux-x64-gnu \
+  @tsrx/oxc-linux-arm64-musl @tsrx/oxc-linux-x64-musl \
+  @tsrx/oxc-win32-arm64-msvc @tsrx/oxc-win32-x64-msvc \
+  @tsrx/oxc
 do
   npm trust github "$name" \
-    --repo markless-dev/oxc-tsrx \
+    --repo tsrx-org/oxc \
     --file publish.yml \
     --allow-publish \
     --yes
   sleep 2
 done
-npm trust list oxc-tsrx     # confirm it saved
+npm trust list @tsrx/oxc    # confirm it saved
 ```
 
 `npm trust` needs npm 11.15.0 or newer, account-level 2FA enabled, and write
@@ -367,8 +394,8 @@ clicks:
 3. Open the **Settings** tab.
 4. Find the **Trusted Publisher** section.
 5. Under **Select your publisher**, click **GitHub Actions**.
-6. **Organization or user**: `markless-dev`
-7. **Repository**: `oxc-tsrx`
+6. **Organization or user**: `tsrx-org`
+7. **Repository**: `oxc`
 8. **Workflow filename**: `publish.yml` (just the filename, with the extension,
    not a path)
 9. **Environment name**: leave empty. `publish.yml` does not declare a GitHub
@@ -420,14 +447,15 @@ is fully automated has not tried it against a name that does not exist yet.
 ## The dist-tag, decided
 
 `docs/releasing/v0.1.0-launch.json` now says `"distTag": "latest"` next to
-`"installPreview": "npm install -D oxc-tsrx"`, and those agree: the advertised
-command resolves `latest`. On the registry today `latest` is 0.1.4.
+`"installPreview": "npm install -D @tsrx/oxc"`, and those agree: the advertised
+command resolves `latest`. Under the old `oxc-tsrx` name `latest` was 0.1.4;
+`@tsrx/oxc` has no `latest` until the first publish under the new name lands.
 
 The trap is worth keeping in mind if anyone proposes `next` again. `npm install
--D oxc-tsrx` resolves `latest`, so publishing under `next` only makes the
+-D @tsrx/oxc` resolves `latest`, so publishing under `next` only makes the
 advertised command fail with E404, which is the first thing anyone reading an
 announcement will run. Either publish to `latest`, or change every piece of
-launch copy to say `oxc-tsrx@next`. There is no third option.
+launch copy to say `@tsrx/oxc@next`. There is no third option.
 
 The publish workflow uses the launch contract's tag by default, prints a loud
 warning when the resolved tag is not `latest`, and accepts a `dist_tag` input if
@@ -470,17 +498,17 @@ The gate is deliberate. `mode` defaults to `dry-run`, the publish step is
 skipped unless `mode` is `publish`, and the job fails immediately if the
 confirmation phrase does not match the version. A mistaken trigger cannot
 publish. The workflow also runs only on `workflow_dispatch` and only in
-`markless-dev/oxc-tsrx`, so no push, tag, or fork can start it.
+`tsrx-org/oxc`, so no push, tag, or fork can start it.
 
 What the workflow checks before it writes anything:
 
 - the candidate run is a **completed, successful** run of
   `release-candidate.yml` on the SHA you named;
 - `SHA256SUMS` still matches the downloaded bytes;
-- the launch contract lists exactly nine packages with `oxc-tsrx` last;
+- the launch contract lists exactly nine packages with `@tsrx/oxc` last;
 - every tarball's manifest carries the version you typed, `access: public`, and
   `provenance: true`;
-- `oxc-tsrx`'s `optionalDependencies` are exactly the eight platform packages,
+- `@tsrx/oxc`'s `optionalDependencies` are exactly the eight platform packages,
   each pinned to that version;
 - **the gate**, `scripts/check-publish-artifacts.ts`, over all nine tarballs.
 
@@ -521,7 +549,7 @@ For every one of the nine tarballs it asks, in this order:
    package go into an empty project created outside this workspace, with none
    of this repository's environment overrides.
 3. **Does the installed copy do real work?** A real lint has to produce a real
-   diagnostic, and `oxc-tsrx/parser` has to produce a real AST through the
+   diagnostic, and `@tsrx/oxc/parser` has to produce a real AST through the
    installed addon. A lint on its own is not enough: 0.1.0 broke the parser and
    left the linter working.
 4. **Would npm accept it?** `npm publish --dry-run`, rehearsed against a local
@@ -554,7 +582,7 @@ worth being exact about what it does and does not establish.
 The backstop rehearsal cannot install the version being rehearsed, because that
 version is not published yet. So `scripts/verify-published-release.ts
 --rehearsal` retargets: if the requested version is not on the registry, it runs
-every stage against the current `latest` of `oxc-tsrx` instead, and says so in
+every stage against the current `latest` of `@tsrx/oxc` instead, and says so in
 the log. If the requested version *is* already published, it runs against that.
 Either way the dry run installs something real from the registry into a project
 outside the workspace and makes it produce a real diagnostic and a real AST.
@@ -574,7 +602,7 @@ Nearly always a trusted publisher configuration mismatch. Check in this order:
 
 1. Workflow filename on npmjs.com is exactly `publish.yml`, with the extension
    and no directory.
-2. Organization/user is `markless-dev` and repository is `oxc-tsrx`, case
+2. Organization/user is `tsrx-org` and repository is `oxc`, case
    sensitive.
 3. The **Environment name** field is empty, because `publish.yml` declares no
    environment.
@@ -606,7 +634,7 @@ coverage:
 1. waits for all nine names to be visible at the published version, retrying,
    because a registry read can hit a replica that has not caught up with the
    write that just succeeded;
-2. installs `oxc-tsrx@<version>` from the registry into a project outside the
+2. installs `@tsrx/oxc@<version>` from the registry into a project outside the
    workspace, so the platform package is resolved through the published
    `optionalDependencies` the way a consumer's first install resolves it;
 3. lints a real file and parses one through the installed addon.
@@ -628,14 +656,14 @@ The automation covers the install and the run. These are not automated:
 
 ```sh
 # Provenance really landed
-npm view oxc-tsrx@0.1.0 dist.attestations
+npm view @tsrx/oxc@<version> dist.attestations
 
 # A project that already pins official oxlint must keep its version
 mkdir /tmp/oxc-tsrx-collision && cd /tmp/oxc-tsrx-collision
 npm init -y
 npm install -D oxlint@1.72.0
 npx oxlint --version           # note the version
-npm install -D oxc-tsrx
+npm install -D @tsrx/oxc
 npx oxlint --version           # MUST still report 1.72.0
 ```
 
@@ -668,7 +696,7 @@ against the registry.
 - **Provenance is per-package.** All nine publish from CI, so all nine get
   attestation. A mixed release where some have it and some do not is worse than
   none having it.
-- **Two dependencies are npm alias specs.** `oxc-tsrx` depends on
+- **Two dependencies are npm alias specs.** `@tsrx/oxc` depends on
   `"oxlint-current": "npm:oxlint@1.74.0"` and `"oxfmt-current": "npm:oxfmt@0.59.0"`.
   The names `oxlint-current` and `oxfmt-current` do not exist on npm and do not
   need to; the alias points at the real package. npm supports alias specs in

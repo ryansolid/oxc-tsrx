@@ -1,11 +1,11 @@
 ---
 title: Linting
-description: How oxc-tsrx runs real OXC lint rules on .tsrx files and reports errors at your actual code.
+description: How @tsrx/oxc runs real OXC lint rules on .tsrx files and reports errors at your actual code.
 ---
 
 # Linting
 
-`oxc-tsrx` lints `.tsrx` files, and ordinary JS/TS files too, with OXC's real
+`@tsrx/oxc` lints `.tsrx` files, and ordinary JS/TS files too, with OXC's real
 lint rules. The code you wrote goes through the same rule engine Oxlint uses. If
 a diagnostic or a fix would land on the placeholder code the tool generates
 instead of on yours, it is dropped rather than shown.
@@ -62,7 +62,7 @@ is rejected.
 
 ## Configuration
 
-Your `.oxlintrc.json` works as usual. `oxc-tsrx` searches upward from the
+Your `.oxlintrc.json` works as usual. `@tsrx/oxc` searches upward from the
 current directory to find it, or takes a `--config` path, and the ordinary
 Oxlint fields all apply: rules, plugins, `env`, `globals`, `settings`,
 `extends`, `overrides`, and `ignorePatterns`.

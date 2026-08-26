@@ -76,5 +76,5 @@ export function nativeTargetForHost(os, cpu, libc = undefined) {
 }
 
 export function nativePackageName(target) {
-  return `@oxc-tsrx/native-${target.packageSuffix}`;
+  return `@tsrx/oxc-${target.packageSuffix}`;
 }

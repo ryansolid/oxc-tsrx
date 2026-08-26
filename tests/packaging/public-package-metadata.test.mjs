@@ -6,11 +6,11 @@ import test from "node:test";
 const root = resolve(import.meta.dirname, "../..");
 
 /**
- * The published surface is `oxc-tsrx` plus the eight platform packages a user
+ * The published surface is `@tsrx/oxc` plus the eight platform packages a user
  * never names. `@oxc-tsrx/parser`, `@oxc-tsrx/runtime`, `oxlint-tsrx`, and
  * `oxfmt-tsrx` were first-party wrappers around this same code, so they are
  * gone rather than published: everything they exported is reachable at
- * `oxc-tsrx/parser`, `oxc-tsrx/lint`, and `oxc-tsrx/format`, and the `oxlint`
+ * `@tsrx/oxc/parser`, `@tsrx/oxc/lint`, and `@tsrx/oxc/format`, and the `oxlint`
  * and `oxfmt` command names are declared by this package's own `bin`.
  */
 test("no first-party wrapper package stands between the user and the toolchain", async () => {
@@ -36,13 +36,19 @@ test("no first-party wrapper package stands between the user and the toolchain",
   for (const wrapper of ["@oxc-tsrx/parser", "@oxc-tsrx/runtime", "oxlint-tsrx", "oxfmt-tsrx"]) {
     assert.equal(launch.npm.publishOrder.includes(wrapper), false, wrapper);
   }
+  // The pre-rename names of the packages that ARE published are equally gone:
+  // the unscoped host name, and the whole `@oxc-tsrx/` scope.
+  assert.equal(launch.npm.publishOrder.includes("oxc-tsrx"), false, "oxc-tsrx");
+  for (const name of launch.npm.publishOrder) {
+    assert.equal(name.startsWith("@oxc-tsrx/"), false, name);
+  }
 });
 
-test("oxc-tsrx is the complete public toolchain boundary", async () => {
+test("@tsrx/oxc is the complete public toolchain boundary", async () => {
   const packageRoot = join(root, "packages", "toolchain");
   const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
 
-  assert.equal(manifest.name, "oxc-tsrx");
+  assert.equal(manifest.name, "@tsrx/oxc");
   assert.equal(manifest.version, "0.6.0");
   assert.deepEqual(manifest.bin, {
     "oxc-tsrx": "./bin/oxc-tsrx",
@@ -65,14 +71,14 @@ test("oxc-tsrx is the complete public toolchain boundary", async () => {
   // The eight-platform split is what makes a user download one binary instead
   // of eight, and this package is now the only place that declares it.
   assert.deepEqual(Object.entries(manifest.optionalDependencies), [
-    ["@oxc-tsrx/native-darwin-arm64", "0.6.0"],
-    ["@oxc-tsrx/native-darwin-x64", "0.6.0"],
-    ["@oxc-tsrx/native-linux-arm64-gnu", "0.6.0"],
-    ["@oxc-tsrx/native-linux-arm64-musl", "0.6.0"],
-    ["@oxc-tsrx/native-linux-x64-gnu", "0.6.0"],
-    ["@oxc-tsrx/native-linux-x64-musl", "0.6.0"],
-    ["@oxc-tsrx/native-win32-arm64-msvc", "0.6.0"],
-    ["@oxc-tsrx/native-win32-x64-msvc", "0.6.0"],
+    ["@tsrx/oxc-darwin-arm64", "0.6.0"],
+    ["@tsrx/oxc-darwin-x64", "0.6.0"],
+    ["@tsrx/oxc-linux-arm64-gnu", "0.6.0"],
+    ["@tsrx/oxc-linux-arm64-musl", "0.6.0"],
+    ["@tsrx/oxc-linux-x64-gnu", "0.6.0"],
+    ["@tsrx/oxc-linux-x64-musl", "0.6.0"],
+    ["@tsrx/oxc-win32-arm64-msvc", "0.6.0"],
+    ["@tsrx/oxc-win32-x64-msvc", "0.6.0"],
   ]);
   assert.deepEqual(Object.keys(manifest.exports), [
     ".",
@@ -106,7 +112,7 @@ test("oxc-tsrx is the complete public toolchain boundary", async () => {
   }
 });
 
-test("oxc-tsrx declares itself as a static OXC language provider", async () => {
+test("@tsrx/oxc declares itself as a static OXC language provider", async () => {
   const packageRoot = join(root, "packages", "toolchain");
   const manifest = JSON.parse(await readFile(join(packageRoot, "package.json"), "utf8"));
 

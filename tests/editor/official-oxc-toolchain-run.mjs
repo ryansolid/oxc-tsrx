@@ -357,7 +357,7 @@ async function runPatchedHostSession({
         name: "oxc-tsrx-patched-host-discovery-proof",
         private: true,
         type: "module",
-        dependencies: { "oxc-tsrx": "0.6.0" },
+        dependencies: { "@tsrx/oxc": "0.6.0" },
       },
       null,
       2,
@@ -415,7 +415,7 @@ async function runPatchedHostSession({
       SHELL: join(temporary, "absent-login-shell"),
       OXC_TSRX_SUITE_MODE: "patched-host",
       OXC_TSRX_DISCOVERY_ROOT: patched,
-      OXC_TSRX_EXPECTED_DEPENDENCIES: JSON.stringify({ "oxc-tsrx": toolchainVersion }),
+      OXC_TSRX_EXPECTED_DEPENDENCIES: JSON.stringify({ "@tsrx/oxc": toolchainVersion }),
       OXC_TSRX_PATH_DECOY_DIR: decoys,
       OXC_TSRX_PATH_DECOY_MARKER: decoyMarker,
       OXC_TSRX_EDITOR_FILE: fixtures.tsrxPath,
@@ -448,7 +448,7 @@ async function runPatchedHostSession({
 
 /**
  * A synthetic Vite+. It publishes the two bin names Vite+ publishes and sorts
- * after `oxc-tsrx`, which is the shape `tests/packaging/reinstall-survival`
+ * after `@tsrx/oxc`, which is the shape `tests/packaging/reinstall-survival`
  * measured taking both names under pnpm 10.33. Both of its shims fail loudly,
  * so a `.tsrx` request that ever reached one would be unmistakable rather than
  * merely diagnostic free.
@@ -457,7 +457,7 @@ const COLLIDER = "vite-plus-bin-collider";
 const COLLIDER_VERSION = "9.9.9";
 /** Exactly what `oxc-tsrx setup` writes, and the only thing that may write it. */
 const EDITOR_KEY = "oxc.path.oxlint";
-const EDITOR_VALUE = "node_modules/oxc-tsrx/bin/oxlint";
+const EDITOR_VALUE = "node_modules/@tsrx/oxc/bin/oxlint";
 
 async function writeBinCollider(directory) {
   await mkdir(join(directory, "bin"), { recursive: true });
@@ -504,8 +504,8 @@ async function linterShimOwner(consumer, providerReal) {
   }
   const source =
     info.isFile() && !info.isSymbolicLink() ? await readFile(shim, "utf8").catch(() => "") : "";
-  if (/oxc-tsrx[\\/]bin[\\/]oxlint/u.test(source)) {
-    return { present: true, ours: true, detail: "text shim naming oxc-tsrx" };
+  if (/@tsrx[\\/]oxc[\\/]bin[\\/]oxlint/u.test(source)) {
+    return { present: true, ours: true, detail: "text shim naming @tsrx/oxc" };
   }
   return { present: true, ours: false, detail: target ?? "text shim naming another package" };
 }
@@ -563,7 +563,7 @@ async function runSetupValueSession({
         private: true,
         type: "module",
         devDependencies: {
-          "oxc-tsrx": toolchainVersion,
+          "@tsrx/oxc": toolchainVersion,
           [COLLIDER]: COLLIDER_VERSION,
         },
       },
@@ -579,7 +579,7 @@ async function runSetupValueSession({
     { cwd: consumer, env: environment },
   );
 
-  const providerReal = await realpath(join(consumer, "node_modules/oxc-tsrx"));
+  const providerReal = await realpath(join(consumer, "node_modules/@tsrx/oxc"));
   const initialShim = await linterShimOwner(consumer, providerReal);
   assert.equal(
     initialShim.present && !initialShim.ours,
@@ -597,7 +597,7 @@ async function runSetupValueSession({
   });
   await mustRun(
     process.execPath,
-    [join(consumer, "node_modules/oxc-tsrx/bin/oxc-tsrx"), "setup"],
+    [join(consumer, "node_modules/@tsrx/oxc/bin/oxc-tsrx"), "setup"],
     { cwd: consumer, env: environment },
   );
 
@@ -709,7 +709,7 @@ async function main() {
       scriptNode(),
       [
         "scripts/package-native.ts",
-        // The editor lanes never import `oxc-tsrx/parser`, and building the
+        // The editor lanes never import `@tsrx/oxc/parser`, and building the
         // addon is a separate `build:parser-native` step this proof does not
         // ask for. `tests/packaging/clean-install.test.mjs` opts out the same
         // way.
@@ -747,7 +747,7 @@ async function main() {
           name: "oxc-tsrx-official-extension-proof",
           private: true,
           type: "module",
-          dependencies: { "oxc-tsrx": "0.6.0" },
+          dependencies: { "@tsrx/oxc": "0.6.0" },
         },
         null,
         2,
@@ -760,20 +760,20 @@ async function main() {
     );
     await mustRun(
       process.execPath,
-      [join(consumer, "node_modules/oxc-tsrx/bin/oxc-tsrx"), "setup"],
+      [join(consumer, "node_modules/@tsrx/oxc/bin/oxc-tsrx"), "setup"],
       { cwd: consumer, env: environment },
     );
 
     const installedOxlint = await realpath(join(consumer, "node_modules/.bin/oxlint"));
     assert.equal(
       installedOxlint,
-      await realpath(join(consumer, "node_modules/oxc-tsrx/bin/oxlint")),
+      await realpath(join(consumer, "node_modules/@tsrx/oxc/bin/oxlint")),
       "the official extension must discover the public package's oxlint launcher",
     );
     const directDependencies = JSON.parse(
       await readFile(join(consumer, "package.json"), "utf8"),
     ).dependencies;
-    assert.deepEqual(directDependencies, { "oxc-tsrx": "0.6.0" });
+    assert.deepEqual(directDependencies, { "@tsrx/oxc": "0.6.0" });
 
     const { ordinaryPath, tsrxPath } = await writeWorkspaceFixtures(consumer, {
       "oxc.enable.oxlint": true,
@@ -814,7 +814,7 @@ async function main() {
           name: "oxc-tsrx-install-only-discovery-proof",
           private: true,
           type: "module",
-          dependencies: { "oxc-tsrx": "0.6.0" },
+          dependencies: { "@tsrx/oxc": "0.6.0" },
         },
         null,
         2,
@@ -841,8 +841,8 @@ async function main() {
       );
     }
 
-    const discoveredHost = join(discovery, "node_modules/oxc-tsrx/bin/oxlint");
-    const discoveredServer = join(discovery, "node_modules/oxc-tsrx/bin/oxc-tsrx-lsp");
+    const discoveredHost = join(discovery, "node_modules/@tsrx/oxc/bin/oxlint");
+    const discoveredServer = join(discovery, "node_modules/@tsrx/oxc/bin/oxc-tsrx-lsp");
     await access(discoveredHost);
     await access(discoveredServer);
 
@@ -900,7 +900,7 @@ async function main() {
         SHELL: join(temporary, "absent-login-shell"),
         OXC_TSRX_SUITE_MODE: "discovery",
         OXC_TSRX_DISCOVERY_ROOT: discovery,
-        OXC_TSRX_EXPECTED_DEPENDENCIES: JSON.stringify({ "oxc-tsrx": toolchainVersion }),
+        OXC_TSRX_EXPECTED_DEPENDENCIES: JSON.stringify({ "@tsrx/oxc": toolchainVersion }),
         OXC_TSRX_PATH_DECOY_DIR: decoys,
         OXC_TSRX_PATH_DECOY_MARKER: decoyMarker,
         OXC_TSRX_EDITOR_FILE: discoveryFixtures.tsrxPath,

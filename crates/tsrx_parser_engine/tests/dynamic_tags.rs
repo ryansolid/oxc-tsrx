@@ -661,7 +661,9 @@ fn bare_dynamic_statement_siblings_remain_linear_and_ordered() {
     let block = object_field(tape, function, "body");
     let body = list_field(tape, block, "body");
     assert_eq!(body.len(), 512);
-    for pair in body.chunks_exact(2) {
+    let (pairs, remainder) = body.as_chunks::<2>();
+    assert!(remainder.is_empty());
+    for pair in pairs {
         require_type(tape, pair[0].as_object().expect("dynamic"), "JSXElement");
         require_type(tape, pair[1].as_object().expect("semicolon"), "EmptyStatement");
     }

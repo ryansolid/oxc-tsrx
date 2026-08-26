@@ -34,7 +34,7 @@ test("editor package is additive, workspace-native, bundled, and VSIX-packaged",
     "onLanguage:tsrx",
     "workspaceContains:**/*.tsrx",
   ]);
-  assert.equal(manifest.dependencies["oxc-tsrx"], "0.6.0");
+  assert.equal(manifest.dependencies["@tsrx/oxc"], "0.6.0");
 
   const directory = await mkdtemp(join(tmpdir(), "oxc-tsrx-vsix-"));
   const output = join(directory, "oxc-tsrx-vscode.vsix");
@@ -58,7 +58,7 @@ test("the extension host is provider-driven and never routes ordinary documents"
   ]);
 
   // Resolution comes from the shipped provider protocol, per workspace folder.
-  assert.match(host, /require\("oxc-tsrx\/provider-resolve"\)/u);
+  assert.match(host, /require\("@tsrx\/oxc\/provider-resolve"\)/u);
   assert.match(host, /require\("\.\/provider-client\.cts"\)/u);
   assert.match(host, /discoverWorkspaceFolders/u);
   assert.doesNotMatch(
@@ -82,7 +82,7 @@ test("the extension host is provider-driven and never routes ordinary documents"
   }
   assert.ok(bundle.includes("//#region packages/toolchain/dist/provider-resolve.js"));
   assert.equal(
-    /require\(["']oxc-tsrx\/provider-resolve["']\)/u.test(bundle),
+    /require\(["']@tsrx\/oxc\/provider-resolve["']\)/u.test(bundle),
     false,
     "the resolver must be bundled, not resolved from the user's workspace at runtime",
   );

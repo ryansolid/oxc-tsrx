@@ -155,7 +155,7 @@ test(
             name: `oxc-tsrx-${manager.name}-consumer`,
             private: true,
             type: "module",
-            devDependencies: { "oxc-tsrx": "0.6.0" },
+            devDependencies: { "@tsrx/oxc": "0.6.0" },
           };
           await writeFile(
             join(consumer, "package.json"),
@@ -172,9 +172,9 @@ test(
               JSON.parse(await readFile(join(consumer, "package.json"), "utf8"))
                 .devDependencies,
             ),
-            ["oxc-tsrx"],
+            ["@tsrx/oxc"],
           );
-          const cli = join(consumer, "node_modules/oxc-tsrx/bin/oxc-tsrx");
+          const cli = join(consumer, "node_modules/@tsrx/oxc/bin/oxc-tsrx");
 
           // The four ways a reader asks this command what it is, before any of
           // them can change the project. `--help` and `--version` are the first
@@ -216,12 +216,12 @@ test(
           assert.ok(firstReport.slots.every((slot) => slot.state === "active"));
 
           // The fourth slot, on the install this package manager actually
-          // wrote. Nothing but `oxc-tsrx` is installed here, so `.bin/oxlint`
+          // wrote. Nothing but `@tsrx/oxc` is installed here, so `.bin/oxlint`
           // is already this package's and the editor setting would be noise.
           // This is the assertion that says the detection reads a real shim
           // rather than a fixture, per package manager.
           assert.equal(firstReport.editorSlot.state, "unnecessary");
-          assert.equal(firstReport.editorSlot.linterShim.owner, "oxc-tsrx");
+          assert.equal(firstReport.editorSlot.linterShim.owner, "@tsrx/oxc");
           assert.ok(
             ["symlink", "shim-text"].includes(firstReport.editorSlot.linterShim.resolvedBy),
             `${manager.name}: ${firstReport.editorSlot.linterShim.resolvedBy}`,
@@ -371,7 +371,7 @@ test(
           assert.equal(editorSetup.editorSlot.state, "active");
           assert.ok(editorSetup.changed.includes("oxc.path.oxlint"));
           assert.deepEqual(JSON.parse(await readFile(settings, "utf8")), {
-            "oxc.path.oxlint": "node_modules/oxc-tsrx/bin/oxlint",
+            "oxc.path.oxlint": "node_modules/@tsrx/oxc/bin/oxlint",
           });
 
           const settled = await readFile(settings, "utf8");
@@ -390,7 +390,7 @@ test(
             "{",
             "  // team-wide",
             '  "editor.tabSize": 2,',
-            '  "oxc.path.oxlint": "node_modules/oxc-tsrx/bin/oxlint",',
+            '  "oxc.path.oxlint": "node_modules/@tsrx/oxc/bin/oxlint",',
             '  "files.eol": "\\n",',
             "}",
             "",

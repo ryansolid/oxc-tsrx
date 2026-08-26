@@ -110,13 +110,13 @@ importers:
       '@oxc-project/types':
         specifier: 0.140.0
         version: 0.140.0
-      oxc-tsrx:
+      '@tsrx/oxc':
         specifier: 0.6.0
         version: link:../toolchain
 
   packages/vscode:
     dependencies:
-      oxc-tsrx:
+      '@tsrx/oxc':
         specifier: 0.6.0
         version: link:../toolchain
       vscode-languageclient:
@@ -4337,6 +4337,7 @@ packages:
 
 ignoredOptionalDependencies:
   - '@oxc-tsrx/native-*'
+  - '@tsrx/oxc-*'
 
 snapshots:
 

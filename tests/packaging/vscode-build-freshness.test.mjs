@@ -32,13 +32,13 @@ async function linkPackage(fixtureRoot, packageName, source) {
 }
 
 // The bundle is the VSIX's only entry point and ships no node_modules, so
-// `require("oxc-tsrx/provider-resolve")` has to be resolved and inlined at build
+// `require("@tsrx/oxc/provider-resolve")` has to be resolved and inlined at build
 // time. A fixture that cannot resolve it would build a differently shaped bundle
 // (Rolldown warns UNRESOLVED_IMPORT and externalises the specifier) and the
 // freshness check would then only compare that degraded build against itself.
 const RESOLVER_REGION = "//#region packages/toolchain/dist/provider-resolve.js";
 const CLIENT_REGION = "//#region packages/vscode/src/provider-client.cts";
-const EXTERNALISED_RESOLVER = /require\(["']oxc-tsrx\/provider-resolve["']\)/u;
+const EXTERNALISED_RESOLVER = /require\(["']@tsrx\/oxc\/provider-resolve["']\)/u;
 
 const COMMITTED_BUNDLE = join(root, "packages/vscode/dist/extension.bundle.cjs");
 const RESOLVER_SOURCE = "packages/toolchain/dist/provider-resolve.js";
@@ -66,7 +66,7 @@ async function createFixture({ linkProvider = true } = {}) {
   await mkdir(join(fixtureRoot, "packages"), { recursive: true });
   // The copied sources must arrive without their installed `node_modules`.
   // pnpm links each workspace package's dependencies into that directory, so
-  // copying it would smuggle a working `oxc-tsrx` link into the fixture that
+  // copying it would smuggle a working `@tsrx/oxc` link into the fixture that
   // is supposed to have none, and would carry symlinks pointing at a virtual
   // store the fixture does not have.
   const withoutInstalledModules = (source) => !/[\\/]node_modules([\\/]|$)/u.test(source);
@@ -95,7 +95,7 @@ async function createFixture({ linkProvider = true } = {}) {
     // does, from a package inside the fixture, or the build it verifies is not
     // the build we ship.
     linkProvider
-      ? linkPackage(fixtureRoot, "oxc-tsrx", join(fixtureRoot, "packages/toolchain"))
+      ? linkPackage(fixtureRoot, "@tsrx/oxc", join(fixtureRoot, "packages/toolchain"))
       : Promise.resolve(),
   ]);
   return fixtureRoot;
