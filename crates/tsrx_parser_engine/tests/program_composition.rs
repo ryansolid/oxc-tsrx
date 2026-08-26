@@ -360,6 +360,11 @@ fn standalone_lazy_assignments_work_in_every_statement_context_without_matching_
 }
 
 #[test]
+fn standalone_lazy_assignment_defaults_match_the_javascript_parser_rejection() {
+    assert_failed("&{ value = 1 } = source;");
+}
+
+#[test]
 fn parenthesized_sequence_expressions_survive_jsx_validation_without_parent_nodes() {
     let source = "function Leaf(theme: () => string) @{ \
         <span>{((window as any).__renders.leaf++, theme())}</span> \
