@@ -17,7 +17,7 @@ resolver = "2"
 version = "0.6.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/thejackshelton/oxc-tsrx"
+repository = "https://github.com/tsrx-org/oxc"
 rust-version = "1.95"
 
 # Lint posture: this workspace's existing rules unioned with upstream oxc's.
