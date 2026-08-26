@@ -15,7 +15,7 @@
 
 set -u
 
-REPO="compiled-run/oxc-tsrx"
+REPO="tsrx-org/oxc"
 WORKFLOW="publish.yml"
 CHECK=0
 [ "${1:-}" = "--check" ] && CHECK=1

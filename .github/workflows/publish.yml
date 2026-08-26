@@ -75,7 +75,7 @@ jobs:
   publish:
     name: ${{ inputs.mode }} ${{ inputs.version }}
     # A fork cannot publish these names, and should not try.
-    if: github.repository == 'compiled-run/oxc-tsrx'
+    if: github.repository == 'tsrx-org/oxc'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -220,10 +220,10 @@ jobs:
           );
           const order = contract.npm.publishOrder;
           assert.equal(order.length, 9, "the launch contract must list exactly 9 packages");
-          assert.equal(order.at(-1), "oxc-tsrx", "the public package must publish last");
+          assert.equal(order.at(-1), "@tsrx/oxc", "the public package must publish last");
           const natives = order.slice(0, -1);
           assert.ok(
-            natives.every((name) => name.startsWith("@oxc-tsrx/native-")),
+            natives.every((name) => name.startsWith("@tsrx/oxc-")),
             "the first eight entries must be the platform packages",
           );
           assert.equal(new Set(order).size, order.length, "duplicate entry in publishOrder");
@@ -231,10 +231,14 @@ jobs:
           const distTag = process.env.DIST_TAG_OVERRIDE || contract.npm.distTag;
           assert.ok(distTag, "no dist-tag resolved");
 
+          // npm pack flattens a scoped name: `@tsrx/oxc` packs as
+          // `tsrx-oxc-<version>.tgz` and `@tsrx/oxc-<suffix>` as
+          // `tsrx-oxc-<suffix>-<version>.tgz`. The same rule is spelled out in
+          // release-candidate.yml, scripts/vsix-archive.ts and the runbook.
           const tarball = (name) =>
-            name === "oxc-tsrx"
-              ? `release/oxc-tsrx-${version}.tgz`
-              : `release/oxc-tsrx-native-${name.slice("@oxc-tsrx/native-".length)}-${version}.tgz`;
+            name === "@tsrx/oxc"
+              ? `release/tsrx-oxc-${version}.tgz`
+              : `release/tsrx-oxc-${name.slice("@tsrx/oxc-".length)}-${version}.tgz`;
 
           const manifests = new Map();
           for (const name of order) {
@@ -253,11 +257,11 @@ jobs:
           // optionalDependencies at install time, so a consumer who installs
           // between the public package landing and the platform packages landing
           // gets no binary and no error.
-          const optional = manifests.get("oxc-tsrx").manifest.optionalDependencies ?? {};
+          const optional = manifests.get("@tsrx/oxc").manifest.optionalDependencies ?? {};
           assert.deepEqual(
             Object.keys(optional).sort(),
             [...natives].sort(),
-            "oxc-tsrx optionalDependencies must be exactly the eight platform packages",
+            "@tsrx/oxc optionalDependencies must be exactly the eight platform packages",
           );
           for (const name of natives) {
             assert.equal(optional[name], version, `${name} must be pinned to ${version}`);
@@ -272,8 +276,8 @@ jobs:
           for (const name of order) console.log(`  ${name}  ${manifests.get(name).path}`);
           if (distTag !== "latest") {
             console.log(
-              `WARNING: the dist-tag is ${distTag}, so \`npm install -D oxc-tsrx\` will not ` +
-                `resolve it. Consumers must write \`oxc-tsrx@${distTag}\`.`,
+              `WARNING: the dist-tag is ${distTag}, so \`npm install -D @tsrx/oxc\` will not ` +
+                `resolve it. Consumers must write \`@tsrx/oxc@${distTag}\`.`,
             );
           }
           NODE
@@ -283,7 +287,7 @@ jobs:
       # publish or the publish itself.
       #
       # 0.1.0 published all eight platform packages with no parser.node, so
-      # `oxc-tsrx/parser` threw on every consumer machine, and this workflow
+      # `@tsrx/oxc/parser` threw on every consumer machine, and this workflow
       # called the release verified because `npm view` resolved a version
       # string. A version string resolving says the package exists. It says
       # nothing about what is inside it.
@@ -408,7 +412,7 @@ jobs:
       # patch. Prevention lives in the gate.
       #
       # What this sees that no pre-publish check can is npm's own handling of
-      # the upload: it installs oxc-tsrx@<version> from the registry into a
+      # the upload: it installs @tsrx/oxc@<version> from the registry into a
       # project outside this workspace, resolves the platform package through
       # the published optionalDependencies the way a consumer's first install
       # does, and then lints a real file and parses one through the installed

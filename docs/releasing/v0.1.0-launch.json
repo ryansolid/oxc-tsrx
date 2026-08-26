@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "version": "0.1.0",
-  "repository": "https://github.com/markless-dev/oxc-tsrx",
+  "repository": "https://github.com/tsrx-org/oxc",
   "site": {
     "url": "https://oxc-tsrx.dev/",
     "artifact": "docs/dist",
@@ -15,17 +15,17 @@
   "npm": {
     "distTag": "latest",
     "publishOrder": [
-      "@oxc-tsrx/native-darwin-arm64",
-      "@oxc-tsrx/native-darwin-x64",
-      "@oxc-tsrx/native-linux-arm64-gnu",
-      "@oxc-tsrx/native-linux-x64-gnu",
-      "@oxc-tsrx/native-linux-arm64-musl",
-      "@oxc-tsrx/native-linux-x64-musl",
-      "@oxc-tsrx/native-win32-arm64-msvc",
-      "@oxc-tsrx/native-win32-x64-msvc",
-      "oxc-tsrx"
+      "@tsrx/oxc-darwin-arm64",
+      "@tsrx/oxc-darwin-x64",
+      "@tsrx/oxc-linux-arm64-gnu",
+      "@tsrx/oxc-linux-x64-gnu",
+      "@tsrx/oxc-linux-arm64-musl",
+      "@tsrx/oxc-linux-x64-musl",
+      "@tsrx/oxc-win32-arm64-msvc",
+      "@tsrx/oxc-win32-x64-msvc",
+      "@tsrx/oxc"
     ],
-    "installPreview": "npm install -D oxc-tsrx"
+    "installPreview": "npm install -D @tsrx/oxc"
   },
   "vscode": {
     "extensionId": "thejackshelton.oxc-tsrx-vscode",

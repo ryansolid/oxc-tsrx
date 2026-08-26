@@ -69,7 +69,7 @@ jobs:
   release:
     name: ${{ inputs.mode }} ${{ inputs.release_type }}
     # A fork cannot tag or release this repository, and should not try.
-    if: github.repository == 'compiled-run/oxc-tsrx'
+    if: github.repository == 'tsrx-org/oxc'
     runs-on: ubuntu-24.04
     # A cold release build of the Rust workspace is the long pole here, and the
     # rust-cache above only helps on a second run with the same key. 60 was the
@@ -292,7 +292,7 @@ jobs:
       #     scaffold through the CLI and rewrites a captured fixture. That is
       #     still deliberately out: no gate reads those two strings.
       #     tests/site/documented-version-pin.test.mjs scans that file, but only
-      #     for the `oxc-tsrx@N.N.N` form, which the transcripts do not use.
+      #     for the `@tsrx/oxc@N.N.N` form, which the transcripts do not use.
       #
       #   * docs/acceptance/performance-report.json carries the version inside
       #     its `versionsIdentity` string and is produced by a full comparative

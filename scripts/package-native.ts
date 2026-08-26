@@ -409,11 +409,11 @@ try {
     license: "MIT",
     repository: {
       type: "git",
-      url: "git+https://github.com/compiled-run/oxc-tsrx.git",
+      url: "git+https://github.com/tsrx-org/oxc.git",
       directory: "packages/native",
     },
-    homepage: "https://github.com/compiled-run/oxc-tsrx#readme",
-    bugs: { url: "https://github.com/compiled-run/oxc-tsrx/issues" },
+    homepage: "https://github.com/tsrx-org/oxc#readme",
+    bugs: { url: "https://github.com/tsrx-org/oxc/issues" },
     keywords: ["oxc", "oxlint", "oxfmt", "tsrx", "native"],
     files: [
       "bin",

@@ -21,7 +21,7 @@ the clean-room proof. Do not substitute a branch name for `COMMIT_SHA`.
 First obtain approval that names the destination and exact source:
 
 > Approve repository push of OXC for TSRX 0.1.0 at COMMIT_SHA to
-> https://github.com/markless-dev/oxc-tsrx.
+> https://github.com/tsrx-org/oxc.
 
 Creating the repository, changing its visibility, or pushing remains outside
 this local preparation task. After the approved push, verify the public source
@@ -46,19 +46,20 @@ The first publication is performed from the reviewed candidate bytes in the
 order recorded in `npm.publishOrder` in `v0.1.0-launch.json`. That is nine
 packages, natives first:
 
-1. `@oxc-tsrx/native-darwin-arm64`
-2. `@oxc-tsrx/native-darwin-x64`
-3. `@oxc-tsrx/native-linux-arm64-gnu`
-4. `@oxc-tsrx/native-linux-x64-gnu`
-5. `@oxc-tsrx/native-linux-arm64-musl`
-6. `@oxc-tsrx/native-linux-x64-musl`
-7. `@oxc-tsrx/native-win32-arm64-msvc`
-8. `@oxc-tsrx/native-win32-x64-msvc`
-9. `oxc-tsrx`
+1. `@tsrx/oxc-darwin-arm64`
+2. `@tsrx/oxc-darwin-x64`
+3. `@tsrx/oxc-linux-arm64-gnu`
+4. `@tsrx/oxc-linux-x64-gnu`
+5. `@tsrx/oxc-linux-arm64-musl`
+6. `@tsrx/oxc-linux-x64-musl`
+7. `@tsrx/oxc-win32-arm64-msvc`
+8. `@tsrx/oxc-win32-x64-msvc`
+9. `@tsrx/oxc`
 
 `@oxc-tsrx/runtime`, `@oxc-tsrx/parser`, `oxlint-tsrx`, and `oxfmt-tsrx` were
-folded into `oxc-tsrx` on 2026-07-25. Do not publish them and do not expect
-tarballs for them. The JSON file is authoritative if this list ever drifts.
+folded into the public package on 2026-07-25. Do not publish them and do not
+expect tarballs for them. The JSON file is authoritative if this list ever
+drifts.
 
 Publish the complete set under `next`, verify exact one-package clean installs
 and provenance, and only then request a separate promotion to `latest`. Never

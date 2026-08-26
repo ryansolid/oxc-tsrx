@@ -25,7 +25,7 @@ import { hostPlatformPackage, installAndExerciseRelease } from "./installed-rele
  *
  *   --version <version>     the version that was just published
  *   --order-file <path>     "<name> <path>" lines naming the published packages
- *                           (default: the eight platform packages plus oxc-tsrx)
+ *                           (default: the eight platform packages plus @tsrx/oxc)
  *   --registry <url>        default https://registry.npmjs.org/
  *   --attempts <n>          registry visibility attempts, 10s apart (default 6)
  *   --rehearsal             dry-run mode: if the requested version is not on the
@@ -50,6 +50,8 @@ import { hostPlatformPackage, installAndExerciseRelease } from "./installed-rele
  */
 
 const root = resolve(import.meta.dirname, "..");
+const PUBLIC_PACKAGE = "@tsrx/oxc";
+const NATIVE_PREFIX = "@tsrx/oxc-";
 
 function parseArguments(argv) {
   const options = {
@@ -91,7 +93,7 @@ function fail(message) {
 }
 
 async function publishedNames(options) {
-  if (!options.orderFile) return [...NATIVE_TARGETS.map(nativePackageName), "oxc-tsrx"];
+  if (!options.orderFile) return [...NATIVE_TARGETS.map(nativePackageName), PUBLIC_PACKAGE];
   const contents = await readFile(resolve(root, options.orderFile), "utf8");
   return contents
     .split("\n")
@@ -121,9 +123,15 @@ async function latestPublished(registry, name) {
   return latest && document.versions?.[latest] ? latest : null;
 }
 
-/** The one name in the set that consumers install; the rest are its platforms. */
+/**
+ * The one name in the set that consumers install; the rest are its platforms.
+ *
+ * The platform names are the public name plus a hyphen and a target suffix, so
+ * the public name itself does not carry NATIVE_PREFIX and the test still
+ * separates the two sets.
+ */
 function publicPackage(names) {
-  return names.find((name) => !name.startsWith("@oxc-tsrx/native-")) ?? "oxc-tsrx";
+  return names.find((name) => !name.startsWith(NATIVE_PREFIX)) ?? PUBLIC_PACKAGE;
 }
 
 async function main() {
