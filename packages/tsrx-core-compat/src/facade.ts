@@ -1460,7 +1460,7 @@ export function normalizeEventName(name) {
 
 export function createTsrxCoreCompat(parser) {
   if (typeof parser?.parseSync !== "function") {
-    throw new TypeError("@oxc-tsrx/tsrx-core-compat requires a parseSync function");
+    throw new TypeError("@tsrx/oxc-core-compat requires a parseSync function");
   }
 
   return Object.freeze({
