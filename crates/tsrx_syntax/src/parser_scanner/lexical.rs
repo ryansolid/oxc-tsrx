@@ -594,11 +594,13 @@ impl Scanner<'_> {
                     complete_function_type |= outermost && !annotated;
                     index += 2;
                 }
-                // `a?: T` marks an optional parameter, so its `:` still opens an annotation. Any
-                // other `?` opens a conditional type, whose `:` only separates the branches.
+                // A `?` that ends its parameter marks that parameter optional: `a?: T` goes on to
+                // an annotation whose `:` opens one here, and the untyped `a?,` and `a?)` end the
+                // parameter outright. Only a `?` with a type after it opens a conditional type,
+                // whose `:` separates the branches instead of opening an annotation.
                 b'?' if outermost => {
                     let next = self.skip_trivia(index + 1).ok()?;
-                    if self.bytes.get(next) != Some(&b':') {
+                    if !matches!(self.bytes.get(next), Some(b':' | b',' | b')')) {
                         conditionals += 1;
                     }
                     index += 1;

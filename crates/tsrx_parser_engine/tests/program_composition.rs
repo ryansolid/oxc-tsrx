@@ -471,6 +471,61 @@ fn lazy_arrow_lookahead_stops_at_a_parenthesised_function_type() {
 }
 
 #[test]
+fn optional_parameter_markers_in_a_function_type_do_not_open_a_conditional_type() {
+    // `step?` is an untyped optional parameter, so the `:` that follows belongs to `next`'s
+    // annotation. Reading the `?` as a conditional type would spend that `:` on a branch and let
+    // the inner `=>` complete the type, which would misread the method's annotation as an arrow
+    // and commit a marker that has no arrow to commit to.
+    let source = "const helpers = {\n\
+        chain(&{ a }): (step?, next: (x: number) => number) => number { return (s, n) => n(a) }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("optional parameter method overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("optional parameter method projection");
+    assert!(projection.source().contains("chain(&{ a })"));
+
+    // The arrow counterpart ends the same annotation at the `=>` that really is the lazy arrow's,
+    // so its marker still has to commit.
+    let source = "const build = (&{ a }): (step?, next: (x: number) => number) => number =>\n\
+        (s, n) => n(a);\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("optional parameter arrow overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("optional parameter arrow projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("optional parameter arrow");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // An optional parameter closing the list directly reads the same way on both sides.
+    let source = "const helpers = {\n\
+        last(&{ a }): (step?) => number { return (s) => a }\n\
+        }\n\
+        const only = (&{ b }): (step?) => number => (s) => b;";
+    let overlay = scan_for_parser(source).expect("trailing optional parameter overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("trailing optional parameter projection");
+    assert!(projection.source().contains("last(&{ a })"));
+    assert!(!projection.source().contains("(&{ b }"));
+
+    // A `?` with a type after it still opens a conditional type, whose `:` spends the branch
+    // rather than opening an annotation, so the `=>` inside completes the type and the `=>` that
+    // follows the whole annotation is the arrow's.
+    let source = "const pick = (&{ a }): (A extends B ? C : (x: T) => U) => a;\n\
+        const helpers = {\n\
+        pick(&{ b }): (A extends B ? C : (x: T) => U) { return b }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("conditional type overlay");
+    let projection = project_for_parser(source, &overlay).expect("conditional type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(projection.source().contains("pick(&{ b })"));
+}
+
+#[test]
 fn parameter_type_intersections_are_not_queued_as_lazy_patterns() {
     let source = "const pick = (x: &{ a: number }) => x;\n\
         const run = (value) => value";
