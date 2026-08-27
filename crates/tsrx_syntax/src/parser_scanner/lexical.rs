@@ -319,6 +319,73 @@ impl Scanner<'_> {
             .map(|_| pattern_start)
     }
 
+    /// Skips the balanced group opening at `open` — a destructuring pattern or the header that
+    /// encloses one — and returns the index just past its closing delimiter. String, template,
+    /// comment, and regex interiors stay opaque, because a destructuring default may hold any of
+    /// them. A mismatched closer or an unterminated group means the bytes were never the group they
+    /// looked like, and returning `None` there leaves the caller declining rather than guessing at
+    /// what follows.
+    pub(super) fn skip_balanced_pattern(&self, open: usize) -> Option<usize> {
+        let mut closers = vec![group_close(*self.bytes.get(open)?)?];
+        let mut index = open + 1;
+        let mut can_start_expression = true;
+        while let Some(&byte) = self.bytes.get(index) {
+            match byte {
+                b'\'' | b'"' => {
+                    index = self.skip_quote(index, byte).ok()?;
+                    can_start_expression = false;
+                }
+                b'`' => {
+                    index = self.skip_template_raw(index, self.bytes.len()).ok()?;
+                    can_start_expression = false;
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'/') => {
+                    index = self.skip_line_comment(index + 2);
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'*') => {
+                    index = self.skip_block_comment(index).ok()?;
+                }
+                b'/' if can_start_expression => {
+                    index = self.skip_regex(index).ok()?;
+                    can_start_expression = false;
+                }
+                b'(' | b'[' | b'{' => {
+                    closers.push(group_close(byte)?);
+                    index += 1;
+                    can_start_expression = true;
+                }
+                b')' | b']' | b'}' => {
+                    if closers.last() != Some(&byte) {
+                        return None;
+                    }
+                    closers.pop();
+                    index += 1;
+                    if closers.is_empty() {
+                        return Some(index);
+                    }
+                    can_start_expression = false;
+                }
+                b'0'..=b'9' => {
+                    index = self.skip_number(index);
+                    can_start_expression = false;
+                }
+                _ if self.identifier_start_width(index).is_some() => {
+                    index = self.skip_identifier(index);
+                    can_start_expression = false;
+                }
+                _ if byte.is_ascii_whitespace() => index += 1,
+                _ => {
+                    can_start_expression = matches!(
+                        byte,
+                        b'=' | b',' | b':' | b'?' | b'!' | b'+' | b'-' | b'*' | b'%' | b'&' | b'|'
+                    );
+                    index += 1;
+                }
+            }
+        }
+        None
+    }
+
     /// `inside_parentheses` says the innermost group still open is a `(` one. A statement cannot
     /// start there — only a `for` header's `;` reaches statement position inside parentheses — so
     /// the predecessors that are ambiguous between a statement boundary and a type do not admit

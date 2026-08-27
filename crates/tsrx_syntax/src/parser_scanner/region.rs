@@ -397,6 +397,15 @@ impl Scanner<'_> {
                         let open = self.skip_trivia(end)?;
                         self.register_lazy_catch_parameter(open)?;
                     }
+                    if identifier == b"for"
+                        && previous_significant_byte(self.bytes, index) != Some(b'.')
+                    {
+                        let mut open = self.skip_trivia(end)?;
+                        if self.bare_keyword_at(open, b"await") {
+                            open = self.skip_trivia(Self::after_bare_keyword(open, b"await"))?;
+                        }
+                        self.register_lazy_loop_target(open)?;
+                    }
                     pending_control_paren = matches!(
                         identifier,
                         b"if" | b"for" | b"while" | b"with" | b"switch" | b"catch"

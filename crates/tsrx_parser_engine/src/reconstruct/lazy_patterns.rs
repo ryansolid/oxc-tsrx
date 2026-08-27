@@ -194,6 +194,18 @@ fn declarator_for_pattern(
             {
                 return Ok(None);
             }
+            // A bare loop target owns no declarator: the pattern is the loop's `left` outright, so
+            // the sigil belongs to no node's span and only the `lazy` field has to be restored.
+            // A TSRX `@for` has already been rewritten to `JSXForExpression` by the time this runs,
+            // and it keeps the same `left`; the classic three-clause form has no `left` at all.
+            if matches!(
+                owner_type,
+                Some(r#""ForOfStatement""# | r#""ForInStatement""# | r#""JSXForExpression""#)
+            ) && tape.field_index(owner, "left").is_some()
+                && field_value(tape, owner, "left")? == child
+            {
+                return Ok(None);
+            }
             let binding_child = match owner_type {
                 Some(r#""AssignmentPattern""#) => field_value(tape, owner, "left")?,
                 Some(r#""RestElement""#) => field_value(tape, owner, "argument")?,
