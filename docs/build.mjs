@@ -290,12 +290,37 @@ const highlightHtml = (code, lang) => highlightWith(highlighter, code, lang)
 
 // Content hash of the shared chrome assets, appended as ?v= to their URLs so
 // deployed pages never pair fresh HTML with a stale cached stylesheet.
-const styleSource = await readFile(path.join(docsDir, 'assets', 'style.css'), 'utf8')
-const assetVersion = createHash('sha256')
-  .update(styleSource)
-  .update(await readFile(path.join(docsDir, 'assets', 'app.js')))
-  .digest('hex')
-  .slice(0, 10)
+// Every shipped script is folded in, not just app.js: the modules app.js and
+// playground.js pull in lazily (interactive.js, fuel.js, demo-wasm-backend.js,
+// the minisearch bundle) inherit this same stamp through import.meta.url, so a
+// hash over app.js alone left an edit to any of them serving from cache
+// forever. Paths are sorted and hashed alongside their contents, so a rename
+// rotates the stamp too.
+const assetsDir = path.join(docsDir, 'assets')
+const styleSource = await readFile(path.join(assetsDir, 'style.css'), 'utf8')
+const scriptAssets = (await readdir(assetsDir, { recursive: true }))
+  .filter((entry) => entry.endsWith('.js') || entry.endsWith('.mjs'))
+  .map((entry) => entry.split(path.sep).join('/'))
+  .sort()
+const assetVersionHash = createHash('sha256').update(styleSource)
+for (const entry of scriptAssets) {
+  assetVersionHash.update(entry).update(await readFile(path.join(assetsDir, entry)))
+}
+// The rolldown bundles (demo-highlighter.js, demo-wasm/engine.js, the wasi
+// worker) are written straight into the site output, so their bytes cannot be
+// hashed here — hash their entry modules instead, so editing one still
+// rotates the stamp.
+for (const entry of [
+  'demo-highlighter-entry.mjs',
+  'demo-wasm-engine-entry.mjs',
+  'demo-wasm-worker-entry.mjs',
+]) {
+  const entryPath = path.join(docsDir, entry)
+  if (existsSync(entryPath)) {
+    assetVersionHash.update(entry).update(await readFile(entryPath))
+  }
+}
+const assetVersion = assetVersionHash.digest('hex').slice(0, 10)
 
 // The three page shells this site renders. Each one gets its own stylesheet.
 const CSS_SHELLS = ['doc', 'home', 'playground']

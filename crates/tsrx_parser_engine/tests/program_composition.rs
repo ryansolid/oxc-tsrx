@@ -373,6 +373,87 @@ fn lazy_arrow_lookahead_separates_generic_return_types_from_comparisons() {
 }
 
 #[test]
+fn lazy_arrow_lookahead_keeps_object_and_template_literal_return_types_inside_the_annotation() {
+    let source = "const shape = (&{ a }): { x: number } | string => a;\n\
+        const label = (&{ kind }): `on${string}` | null => kind;\n\
+        const tuple = (&{ b }): [{ y: 1 }, string][] => b;";
+    let overlay = scan_for_parser(source).expect("type annotation overlay");
+    let projection = project_for_parser(source, &overlay).expect("type annotation projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(!projection.source().contains("(&{ kind }"));
+    assert!(!projection.source().contains("(&{ b }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("object type return annotations");
+    let tape = result.program();
+    let patterns = (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                == Some(r#""ObjectPattern""#)
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(patterns.len(), 3);
+    for pattern in patterns {
+        assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
+        let (pattern_start, _) = span(tape, pattern);
+        assert_eq!(source.as_bytes()[usize::try_from(pattern_start - 1).expect("offset")], b'&');
+    }
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn lazy_arrow_lookahead_reads_a_function_return_type_as_part_of_the_annotation() {
+    let source = "const helpers = {\n\
+        make(&{ a }): (x: number) => number { return (x) => x + a }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("function type overlay");
+    let projection = project_for_parser(source, &overlay).expect("function type projection");
+    assert!(projection.source().contains("make(&{ a })"));
+
+    let source = "const build = (&{ a }): (x: number) => number => (x) => x + a;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("arrow function type overlay");
+    let projection = project_for_parser(source, &overlay).expect("arrow function type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+}
+
+#[test]
+fn rest_lazy_parameters_admit_trivia_between_the_spread_and_the_pattern() {
+    let source = "const gather = (head: string, ... /* gap */ &{ a, b }) => [head, a, b];\n\
+        const spread = (lead: string, ... // gap\n\
+        &{ c }) => [lead, c];";
+    let overlay = scan_for_parser(source).expect("spread trivia overlay");
+    let projection = project_for_parser(source, &overlay).expect("spread trivia projection");
+    assert!(!projection.source().contains("&{ a, b }"));
+    assert!(!projection.source().contains("&{ c }"));
+
+    let result =
+        parse_tsrx(&TsrxParseRequest { source }).expect("rest lazy parameters with trivia");
+    let tape = result.program();
+    let patterns = (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                == Some(r#""ObjectPattern""#)
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(patterns.len(), 2);
+    for pattern in patterns {
+        assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
+        let (pattern_start, _) = span(tape, pattern);
+        assert_eq!(source.as_bytes()[usize::try_from(pattern_start - 1).expect("offset")], b'&');
+    }
+    assert_no_scaffold(tape);
+}
+
+#[test]
 fn lazy_arrow_parameters_compose_with_expression_code_blocks() {
     let source = "const View = (&{ name }: Props) => @{ <p>{name}</p> };\n\
         const view = @{ const render = (&{ id }) => id; <b>{render}</b> };";

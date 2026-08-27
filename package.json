@@ -66,6 +66,7 @@
     "build:editor:check": "pnpm --filter oxc-tsrx-vscode run build --check",
     "docs:build": "node docs/build.mjs",
     "docs:wasm": "node scripts/build-docs-wasm.ts",
+    "docs:wasm:fetch": "node scripts/fetch-docs-wasm.ts",
     "docs:transcripts": "node docs/generate-transcripts.mjs",
     "docs:serve": "node docs/serve.mjs",
     "docs:verify": "node docs/verify.mjs",

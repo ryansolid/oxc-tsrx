@@ -357,88 +357,227 @@ impl Scanner<'_> {
     }
 
     /// `...&{ … }` is a rest lazy parameter, so the spread's own `.` has to admit the pattern the
-    /// way an opening delimiter or a comma does.
+    /// way an opening delimiter or a comma does. The walk back is trivia-aware because the forward
+    /// scan is: `, /* gap */ &{ a }` already queues a marker, so `... /* gap */ &{ a }` has to too.
     fn follows_rest_spread(&self, ampersand: usize) -> bool {
-        let Some(dot) =
-            (0..ampersand).rev().find(|index| !self.bytes[*index].is_ascii_whitespace())
-        else {
-            return false;
-        };
-        self.bytes.get(dot.saturating_sub(2)..=dot) == Some(b"...")
+        let end = self.previous_significant_end(ampersand);
+        end.checked_sub(3).is_some_and(|start| &self.bytes[start..end] == b"...")
     }
 
-    pub(super) fn arrow_follows_parameter_list(&self, mut index: usize) -> bool {
-        let Ok(next) = self.skip_trivia(index) else {
+    /// The index just past the last significant byte before `end`, stepping over whitespace and
+    /// both comment forms the way [`Scanner::skip_trivia`] does going forward.
+    fn previous_significant_end(&self, mut end: usize) -> usize {
+        loop {
+            let mut crossed_line_break = false;
+            while end > 0 && self.bytes[end - 1].is_ascii_whitespace() {
+                crossed_line_break |= matches!(self.bytes[end - 1], b'\n' | b'\r');
+                end -= 1;
+            }
+            // Block comments do not nest, so the nearest preceding `/*` opens this one. A `/*`
+            // written inside the comment text would land the walk mid-comment instead, which
+            // fails closed: the caller looks for an exact `...` and will not find one there.
+            if end >= 4
+                && self.bytes[end - 2..end] == *b"*/"
+                && let Some(open) =
+                    (0..end - 2).rev().find(|start| self.bytes[*start..*start + 2] == *b"/*")
+            {
+                end = open;
+                continue;
+            }
+            // Only the line break that closed it can put a `//` comment before `end`.
+            if crossed_line_break && let Some(open) = self.line_comment_start_before(end) {
+                end = open;
+                continue;
+            }
+            return end;
+        }
+    }
+
+    /// Where the `//` comment ending the line before `end` opens, if there is one. Quoted text is
+    /// stepped over so a `//` inside a string is not read as a comment; a template literal or an
+    /// unterminated block comment leaves the line undecidable, and reporting no comment then keeps
+    /// the caller from walking back over code it cannot account for.
+    fn line_comment_start_before(&self, end: usize) -> Option<usize> {
+        let line_start = self.bytes[..end]
+            .iter()
+            .rposition(|byte| matches!(byte, b'\n' | b'\r'))
+            .map_or(0, |index| index + 1);
+        let mut index = line_start;
+        while index < end {
+            match self.bytes[index] {
+                b'`' => return None,
+                quote @ (b'\'' | b'"') => {
+                    index += 1;
+                    while index < end && self.bytes[index] != quote {
+                        index += 1 + usize::from(self.bytes[index] == b'\\');
+                    }
+                    if index >= end {
+                        return None;
+                    }
+                    index += 1;
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'*') => {
+                    let close =
+                        self.bytes[index + 2..end].windows(2).position(|pair| pair == b"*/")?;
+                    index += 4 + close;
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'/') => return Some(index),
+                _ => index += 1,
+            }
+        }
+        None
+    }
+
+    pub(super) fn arrow_follows_parameter_list(&self, index: usize) -> bool {
+        let Ok(index) = self.skip_trivia(index) else {
             return false;
         };
-        index = next;
         if self.bytes.get(index..index + 2) == Some(b"=>") {
             return true;
         }
         if self.bytes.get(index) != Some(&b':') {
             return false;
         }
-        index += 1;
+        // A return annotation is exactly one type expression. Its own `{ … }` (an object type) and
+        // its own `=>` (a function type) stay inside it, so neither one decides anything on its
+        // own: what follows the whole type does, and only an arrow puts a `=>` there.
+        let Some(end) = self.skip_type_expression(index + 1) else {
+            return false;
+        };
+        let Ok(next) = self.skip_trivia(end) else {
+            return false;
+        };
+        self.bytes.get(next..next + 2) == Some(b"=>")
+    }
 
-        let mut delimiters = Vec::new();
-        while index < self.bytes.len() {
-            match self.bytes[index] {
-                b'\'' | b'"' => {
-                    let Ok(end) = self.skip_quote(index, self.bytes[index]) else {
-                        return false;
-                    };
-                    index = end;
+    /// Consumes exactly one type expression and returns the index just past it. Union and
+    /// intersection members, postfix `[]` and type arguments, qualified names, type predicates,
+    /// conditional types, and the `=>` of a function type all continue the same type; the first
+    /// token that cannot extend it ends the consumption and is left for the caller to classify.
+    fn skip_type_expression(&self, mut index: usize) -> Option<usize> {
+        let mut extends_seen = false;
+        let mut conditionals = 0_u32;
+        loop {
+            index = self.skip_trivia(index).ok()?;
+            let byte = *self.bytes.get(index)?;
+            // Only a parenthesised parameter list can carry a function type's `=>`; every other
+            // way of reaching a `=>` means the type already ended.
+            let mut function_head = byte == b'(';
+            match byte {
+                b'(' | b'[' | b'{' => index = self.skip_type_group(index)?,
+                // Type parameters lead a generic function type, whose parameter list is the type.
+                b'<' => {
+                    index = self.skip_type_group(index)?;
+                    continue;
                 }
+                // A leading `|` or `&`, and a numeric literal's sign, carry no type of their own.
+                b'|' | b'&' | b'+' | b'-' => {
+                    index += 1;
+                    continue;
+                }
+                b'\'' | b'"' => index = self.skip_quote(index, byte).ok()?,
+                b'`' => index = self.skip_template_raw(index, self.bytes.len()).ok()?,
+                b'0'..=b'9' => index = self.skip_number(index),
+                _ if self.identifier_start_width(index).is_some() => {
+                    let end = self.skip_identifier(index);
+                    let leads_a_type = TYPE_PREFIX_KEYWORDS.contains(&&self.bytes[index..end]);
+                    index = end;
+                    if leads_a_type {
+                        continue;
+                    }
+                }
+                _ => return None,
+            }
+
+            loop {
+                let next = self.skip_trivia(index).ok()?;
+                match self.bytes.get(next) {
+                    // `T[]`, `T[K]`, and `T<Args>` all extend the type they follow.
+                    Some(b'[' | b'<') => index = self.skip_type_group(next)?,
+                    // A qualified name: `A.B.C`.
+                    Some(b'.') => {
+                        let name = self.skip_trivia(next + 1).ok()?;
+                        index = self.skip_identifier(name);
+                        if index == name {
+                            return None;
+                        }
+                    }
+                    _ => break,
+                }
+                function_head = false;
+            }
+
+            let next = self.skip_trivia(index).ok()?;
+            match self.bytes.get(next).copied() {
+                // Another union or intersection member follows.
+                Some(b'|' | b'&') => index = next + 1,
+                // `(a: A) => B` is one function type, so this `=>` and the return type it
+                // introduces belong to the annotation rather than to an arrow body.
+                Some(b'=') if function_head && self.bytes.get(next + 1) == Some(&b'>') => {
+                    index = next + 2;
+                }
+                // The branches of `A extends B ? C : D`, admitted only behind the `extends` and
+                // the `?` that make a `:` part of a type rather than the end of one.
+                Some(b'?') if extends_seen => {
+                    extends_seen = false;
+                    conditionals += 1;
+                    index = next + 1;
+                }
+                Some(b':') if conditionals > 0 => {
+                    conditionals -= 1;
+                    index = next + 1;
+                }
+                _ if self.bare_keyword_at(next, b"extends") => {
+                    extends_seen = true;
+                    index = Self::after_bare_keyword(next, b"extends");
+                }
+                // `x is T` completes a type predicate.
+                _ if self.bare_keyword_at(next, b"is") => {
+                    index = Self::after_bare_keyword(next, b"is");
+                }
+                _ => return Some(index),
+            }
+        }
+    }
+
+    /// Skips the balanced group opening at `open`, keeping string, template, and comment interiors
+    /// opaque. A closer that does not match, and a `;` inside an angle group, both mean the group
+    /// was never a group — most often a `<` that was really a comparison — and end the scan rather
+    /// than let it run away through the rest of the file.
+    fn skip_type_group(&self, open: usize) -> Option<usize> {
+        let mut closers = vec![group_close(*self.bytes.get(open)?)?];
+        let mut index = open + 1;
+        while let Some(&byte) = self.bytes.get(index) {
+            match byte {
+                b'\'' | b'"' => index = self.skip_quote(index, byte).ok()?,
+                b'`' => index = self.skip_template_raw(index, self.bytes.len()).ok()?,
                 b'/' if self.bytes.get(index + 1) == Some(&b'/') => {
                     index = self.skip_line_comment(index + 2);
                 }
                 b'/' if self.bytes.get(index + 1) == Some(&b'*') => {
-                    let Ok(end) = self.skip_block_comment(index) else {
-                        return false;
-                    };
-                    index = end;
+                    index = self.skip_block_comment(index).ok()?;
                 }
-                b'(' | b'[' | b'{' => {
-                    delimiters.push(match self.bytes[index] {
-                        b'(' => b')',
-                        b'[' => b']',
-                        b'{' => b'}',
-                        _ => unreachable!(),
-                    });
+                // A nested function type's `=>` ends in a `>` that closes no angle group.
+                b'=' if self.bytes.get(index + 1) == Some(&b'>') => index += 2,
+                b'(' | b'[' | b'{' | b'<' => {
+                    closers.push(group_close(byte)?);
                     index += 1;
                 }
-                // `<` opens type arguments only where a type may start: at the head of the
-                // annotation or nested in another argument list. Everywhere else it is a
-                // less-than comparison, and tracking it would leave a `>` outstanding forever.
-                b'<' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => {
-                    delimiters.push(b'>');
+                b')' | b']' | b'}' | b'>' => {
+                    if closers.last() != Some(&byte) {
+                        return None;
+                    }
+                    closers.pop();
                     index += 1;
-                }
-                byte @ (b')' | b']' | b'}' | b'>') if delimiters.last().copied() == Some(byte) => {
-                    delimiters.pop();
-                    index += 1;
-                    if byte == b'}' && delimiters.is_empty() {
-                        // A balanced top-level block ended the annotation, so whatever follows
-                        // belongs to a body rather than to this parameter list: only an
-                        // immediate `=>` still reads as an arrow.
-                        let Ok(next) = self.skip_trivia(index) else {
-                            return false;
-                        };
-                        return self.bytes.get(next..next + 2) == Some(b"=>");
+                    if closers.is_empty() {
+                        return Some(index);
                     }
                 }
-                b'=' if delimiters.is_empty() && self.bytes.get(index + 1) == Some(&b'>') => {
-                    return true;
-                }
-                // An outstanding `>` means a `<` was read as type arguments it never opened, so
-                // stop here instead of trusting the rest of the scan.
-                b';' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => {
-                    return false;
-                }
+                b';' if closers.last() == Some(&b'>') => return None,
                 _ => index += 1,
             }
         }
-        false
+        None
     }
 
     pub(super) fn keyword_at(&self, index: usize, keyword: &[u8]) -> bool {
@@ -482,6 +621,20 @@ impl Scanner<'_> {
             index += width;
         }
         index
+    }
+}
+
+/// Type operators that lead the type they apply to, so consumption continues past them into it.
+const TYPE_PREFIX_KEYWORDS: [&[u8]; 8] =
+    [b"abstract", b"asserts", b"infer", b"keyof", b"new", b"readonly", b"typeof", b"unique"];
+
+const fn group_close(open: u8) -> Option<u8> {
+    match open {
+        b'(' => Some(b')'),
+        b'[' => Some(b']'),
+        b'{' => Some(b'}'),
+        b'<' => Some(b'>'),
+        _ => None,
     }
 }
 

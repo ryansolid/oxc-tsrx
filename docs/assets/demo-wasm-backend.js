@@ -5,7 +5,9 @@
 
 let enginePromise = null
 const loadEngine = () =>
-  (enginePromise ??= import(new URL('./demo-wasm/engine.js', import.meta.url)))
+  (enginePromise ??= import(
+    new URL(`./demo-wasm/engine.js${new URL(import.meta.url).search}`, import.meta.url),
+  ))
 
 const parseJsonRequest = (body) => {
   if (typeof body === 'string' && body.trimStart().startsWith('{')) {
