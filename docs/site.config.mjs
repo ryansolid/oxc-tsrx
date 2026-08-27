@@ -131,7 +131,7 @@ export default {
   ],
   footer: {
     disclaimer:
-      'An independent community project, not affiliated with VoidZero or the OXC team.',
+      'The official OXC integration for TSRX.',
     copyright: 'MIT Licensed',
   },
 }

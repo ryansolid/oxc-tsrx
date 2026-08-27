@@ -11,10 +11,9 @@ would transfer, what would have to be rewritten, and what upstream would have to
 open up first, against pinned revisions.
 
 Nothing here has been submitted to OXC and nothing is scheduled. OXC for TSRX is
-an independent community project, not affiliated with or endorsed by VoidZero or
-the OXC team, and no maintainer interest is claimed. What ships today is one npm
-package owning the `oxlint` and `oxfmt` command names, which does not depend on
-any of this.
+the official OXC integration for TSRX, maintained by the TSRX project. What
+ships today is one npm package owning the `oxlint` and `oxfmt` command names,
+which does not depend on any of this.
 
 Four facts set up the rest:
 

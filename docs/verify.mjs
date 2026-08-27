@@ -1039,7 +1039,7 @@ check(
   badge,
 )
 const disclaimer = (await page.locator('.footer-disclaimer').textContent()).trim()
-check(disclaimer.includes('not affiliated'), 'footer: VoidZero non-affiliation disclaimer present')
+check(disclaimer.includes('official OXC integration for TSRX'), 'footer: official OXC integration line present')
 
 // ---------- projection explorer ----------
 await page.goto(`${baseUrl}/guide/linting`, { waitUntil: 'load' })
