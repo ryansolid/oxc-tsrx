@@ -306,6 +306,20 @@ const assetVersionHash = createHash('sha256').update(styleSource)
 for (const entry of scriptAssets) {
   assetVersionHash.update(entry).update(await readFile(path.join(assetsDir, entry)))
 }
+// The rolldown bundles (demo-highlighter.js, demo-wasm/engine.js, the wasi
+// worker) are written straight into the site output, so their bytes cannot be
+// hashed here — hash their entry modules instead, so editing one still
+// rotates the stamp.
+for (const entry of [
+  'demo-highlighter-entry.mjs',
+  'demo-wasm-engine-entry.mjs',
+  'demo-wasm-worker-entry.mjs',
+]) {
+  const entryPath = path.join(docsDir, entry)
+  if (existsSync(entryPath)) {
+    assetVersionHash.update(entry).update(await readFile(entryPath))
+  }
+}
 const assetVersion = assetVersionHash.digest('hex').slice(0, 10)
 
 // The three page shells this site renders. Each one gets its own stylesheet.
