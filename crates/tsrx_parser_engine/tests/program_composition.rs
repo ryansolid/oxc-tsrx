@@ -277,6 +277,41 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
 }
 
 #[test]
+fn lazy_arrow_parameters_preserve_patterns_types_defaults_and_async_arrows() {
+    let source = "const View = (&{ name, title = name }: Props): string => title;\n\
+        const select = async (prefix: string, /* gap */ &[first, ...rest]: Items = items) => [prefix, first, rest];\n\
+        const nested = (&{ user: &{ id } }: Props) => id;\n\
+        const bitwise = (value = source&{ value: 1 }) => value;";
+    let overlay = scan_for_parser(source).expect("lazy arrow overlay");
+    let projection = project_for_parser(source, &overlay).expect("lazy arrow projection");
+    assert!(!projection.source().contains("(&{ name"));
+    assert!(!projection.source().contains("/* gap */ &[first"));
+    assert!(!projection.source().contains("&{ user:"));
+    assert!(!projection.source().contains("user: &{ id"));
+    assert!(projection.source().contains("source&{ value: 1 }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("lazy arrow parameters");
+    let tape = result.program();
+    let patterns = (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                .is_some_and(|kind| matches!(kind, r#""ArrayPattern""# | r#""ObjectPattern""#))
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(patterns.len(), 4);
+    for pattern in patterns {
+        assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
+        let (pattern_start, _) = span(tape, pattern);
+        assert_eq!(source.as_bytes()[usize::try_from(pattern_start - 1).expect("offset")], b'&');
+    }
+    assert_no_scaffold(tape);
+}
+
+#[test]
 fn standalone_lazy_assignment_statements_match_the_estree_shape_and_authored_spans() {
     let source = "&{ value, ...rest } = object;\n&[first, ...tail] = items;";
     let overlay = scan_for_parser(source).expect("standalone lazy assignment overlay");
