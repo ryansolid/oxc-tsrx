@@ -359,7 +359,8 @@ impl Scanner<'_> {
     /// `...&{ … }` is a rest lazy parameter, so the spread's own `.` has to admit the pattern the
     /// way an opening delimiter or a comma does.
     fn follows_rest_spread(&self, ampersand: usize) -> bool {
-        let Some(dot) = (0..ampersand).rev().find(|index| !self.bytes[*index].is_ascii_whitespace())
+        let Some(dot) =
+            (0..ampersand).rev().find(|index| !self.bytes[*index].is_ascii_whitespace())
         else {
             return false;
         };
@@ -431,7 +432,9 @@ impl Scanner<'_> {
                 }
                 // An outstanding `>` means a `<` was read as type arguments it never opened, so
                 // stop here instead of trusting the rest of the scan.
-                b';' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => return false,
+                b';' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => {
+                    return false;
+                }
                 _ => index += 1,
             }
         }
