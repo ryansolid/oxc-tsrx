@@ -12,8 +12,9 @@ pub use diagnostics::ProjectionError;
 pub use model::{
     ByteSpan, ClauseRole, ControlContext, ControlKind, EmbeddedKind, ForHeader, NONE_INDEX,
     Overlay, OverlayClause, OverlayDynamicTag, OverlayEmbedded, OverlayNode, OverlayStyleBlock,
-    OverlayToken, OverlayView, ParserCodeBlock, ParserDynamicKind, ParserDynamicToken,
-    ParserLazyPattern, ParserShorthandAttribute, ScriptBlock, StructuralKind, StructuralToken,
+    OverlayToken, OverlayView, PARSER_EXPRESSION_CODE_BLOCK_PREFIX, ParserCodeBlock,
+    ParserCodeBlockKind, ParserDynamicKind, ParserDynamicToken, ParserLazyPattern,
+    ParserShorthandAttribute, ScriptBlock, StructuralKind, StructuralToken,
 };
 pub use parser_projection::{MappedProjection as ParserProjection, project_for_parser};
 pub use parser_scanner::OpaqueSurrogateContext;

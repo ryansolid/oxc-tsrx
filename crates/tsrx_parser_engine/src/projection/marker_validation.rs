@@ -2,8 +2,8 @@
 //! demands, so a missing or duplicated marker is caught before reconstruction starts.
 
 use tsrx_syntax::{
-    ClauseRole, ControlContext, ControlKind, NONE_INDEX, OverlayView, ProjectionSegment,
-    StructuralKind,
+    ClauseRole, ControlContext, ControlKind, NONE_INDEX, OverlayView, ParserCodeBlockKind,
+    ProjectionSegment, StructuralKind,
 };
 use tsrx_tape_schema::CommentRecord;
 
@@ -134,16 +134,23 @@ impl MarkerValidation {
             StructuralKind::FunctionBody => {
                 let projected_start = project_authored_start(segments, token.span.end)
                     .ok_or(TsrxParseError::Unsupported("unmapped code-block marker"))?;
-                if overlay
-                    .parser_code_blocks
-                    .binary_search_by_key(&(raw), |block| block.token)
-                    .is_ok()
+                if let Ok(block) =
+                    overlay.parser_code_blocks.binary_search_by_key(&(raw), |block| block.token)
                 {
-                    let text = slice(projected, comment.span.start, comment.span.end)?;
-                    let (marker_prefix, _) = parse_marker(text)
-                        .ok_or(TsrxParseError::Unsupported("invalid JSX code-block marker"))?;
-                    let expected = format!("{{(async function*{marker_prefix}J{raw}_(){{");
-                    slice(projected, projected_start, comment.span.start)? == expected
+                    match overlay.parser_code_blocks[block].kind {
+                        ParserCodeBlockKind::JsxChild => {
+                            let text = slice(projected, comment.span.start, comment.span.end)?;
+                            let (marker_prefix, _) = parse_marker(text).ok_or(
+                                TsrxParseError::Unsupported("invalid JSX code-block marker"),
+                            )?;
+                            let expected = format!("{{(async function*{marker_prefix}J{raw}_(){{");
+                            slice(projected, projected_start, comment.span.start)? == expected
+                        }
+                        ParserCodeBlockKind::Expression => {
+                            comment.span.start == projected_start.saturating_add(1)
+                                && slice(projected, projected_start, comment.span.start)? == "{"
+                        }
+                    }
                 } else {
                     comment.span.start == projected_start.saturating_add(1)
                         && slice(projected, projected_start, comment.span.start)? == "{"

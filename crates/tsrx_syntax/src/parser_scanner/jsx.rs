@@ -4,8 +4,8 @@ use crate::{
     diagnostics::{ProjectionError, to_u32},
     model::{
         ByteSpan, ControlContext, DynamicTag, EmbeddedKind, EmbeddedToken, NONE, ParserCodeBlock,
-        ParserDynamicKind, ParserDynamicToken, ParserShorthandAttribute, ScriptBlock,
-        StructuralKind, StyleBlock,
+        ParserCodeBlockKind, ParserDynamicKind, ParserDynamicToken, ParserShorthandAttribute,
+        ScriptBlock, StructuralKind, StyleBlock,
     },
 };
 
@@ -408,7 +408,7 @@ impl Scanner<'_> {
                     index = self.parse_try(index, ControlContext::JsxChild)?;
                 }
                 b'@' if self.bytes.get(index + 1) == Some(&b'{') => {
-                    index = self.scan_jsx_code_block(index)?;
+                    index = self.scan_parser_code_block(index, ParserCodeBlockKind::JsxChild)?;
                 }
                 b'@' => {
                     if self.keyword_at(index, b"else")
@@ -456,13 +456,20 @@ impl Scanner<'_> {
         }
     }
 
-    fn scan_jsx_code_block(&mut self, start: usize) -> Result<usize, ProjectionError> {
+    pub(super) fn scan_parser_code_block(
+        &mut self,
+        start: usize,
+        kind: ParserCodeBlockKind,
+    ) -> Result<usize, ProjectionError> {
         let token = to_u32(self.tokens.len())?;
         self.push_token(StructuralKind::FunctionBody, start)?;
         let manifest = self.parser_code_blocks.len();
         let body_start = to_u32(start + 1)?;
-        self.parser_code_blocks
-            .push(ParserCodeBlock { token, body: ByteSpan::new(body_start, body_start) });
+        self.parser_code_blocks.push(ParserCodeBlock {
+            token,
+            body: ByteSpan::new(body_start, body_start),
+            kind,
+        });
         let end = self.scan_region(start + 2, Some(b'}'))?;
         self.parser_code_blocks[manifest].body.end = to_u32(end)?;
         Ok(end)

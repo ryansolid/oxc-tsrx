@@ -1,4 +1,6 @@
-use tsrx_syntax::ProjectionSegment;
+use tsrx_syntax::{
+    OverlayView, PARSER_EXPRESSION_CODE_BLOCK_PREFIX, ParserCodeBlockKind, ProjectionSegment,
+};
 use tsrx_tape_schema::{
     DiagnosticTable, DynamicImportRecord, ExportExportNameKind, ExportImportNameKind,
     ExportLocalNameKind, ImportNameKind, ListRange, ModuleNameRecord, ModuleTable,
@@ -9,7 +11,7 @@ use tsrx_tape_schema::{
 
 use crate::{
     TsrxParseError,
-    projection::{map_affine_span, map_endpoint},
+    projection::{map_affine_span, map_endpoint, project_authored_start},
 };
 
 #[derive(Debug, Default)]
@@ -72,6 +74,7 @@ struct MappedExportEntry {
 pub(super) fn reconstruct_module(
     mut projected: ModuleTable,
     segments: &[ProjectionSegment],
+    overlay: OverlayView<'_>,
 ) -> Result<(ModuleTable, u32), TsrxParseError> {
     // Parser projection never introduces a top-level module-syntax form. Preserve OXC's flag
     // independently of entry arrays because TypeScript `export =` and `export as namespace`
@@ -81,8 +84,13 @@ pub(super) fn reconstruct_module(
     let mut authored = ModuleTable::default();
     let suppressed_static_imports =
         reconstruct_static_imports(&mut projected, &projected_strings, segments, &mut authored)?;
-    let suppressed_static_exports =
-        reconstruct_static_exports(&mut projected, &projected_strings, segments, &mut authored)?;
+    let suppressed_static_exports = reconstruct_static_exports(
+        &mut projected,
+        &projected_strings,
+        segments,
+        overlay,
+        &mut authored,
+    )?;
     drop(projected_strings);
     let suppressed_dynamic_imports =
         reconstruct_dynamic_imports(&mut projected, segments, &mut authored)?;
@@ -151,6 +159,7 @@ fn reconstruct_static_exports(
     projected: &mut ModuleTable,
     projected_strings: &str,
     segments: &[ProjectionSegment],
+    overlay: OverlayView<'_>,
     authored: &mut ModuleTable,
 ) -> Result<usize, TsrxParseError> {
     let mut suppressed = 0;
@@ -161,7 +170,8 @@ fn reconstruct_static_exports(
         let mut state = MappingState::default();
         let span = mapped_module_span(segments, record.span, &mut state);
         for entry in entries {
-            let _ = mapped_export_entry(segments, *entry, &mut state);
+            let override_span = default_expression_code_block_span(*entry, segments, overlay);
+            let _ = mapped_export_entry(segments, *entry, override_span, &mut state);
         }
         if !state.retain("mixed authored and synthetic static-export record")? {
             suppressed += 1;
@@ -173,7 +183,8 @@ fn reconstruct_static_exports(
         let entry_start = authored.begin_static_export_entries()?;
         for entry in entries {
             let mut entry_state = MappingState::default();
-            let entry = mapped_export_entry(segments, *entry, &mut entry_state);
+            let override_span = default_expression_code_block_span(*entry, segments, overlay);
+            let entry = mapped_export_entry(segments, *entry, override_span, &mut entry_state);
             ensure_retained(
                 &entry_state,
                 "authored static-export mapping changed between validation and emission",
@@ -345,13 +356,44 @@ fn mapped_import_entry(
     }
 }
 
+fn default_expression_code_block_span(
+    entry: StaticExportEntryRecord,
+    segments: &[ProjectionSegment],
+    overlay: OverlayView<'_>,
+) -> Option<TapeSpan> {
+    if entry.export_name.kind != ExportExportNameKind::Default {
+        return None;
+    }
+    overlay.parser_code_blocks.iter().find_map(|block| {
+        if block.kind != ParserCodeBlockKind::Expression {
+            return None;
+        }
+        let projected_body_start = project_authored_start(segments, block.body.start)?;
+        let projected_wrapper_start = projected_body_start
+            .checked_sub(u32::try_from(PARSER_EXPRESSION_CODE_BLOCK_PREFIX.len()).ok()?)?;
+        if entry.span.start != projected_wrapper_start {
+            return None;
+        }
+        let token = overlay.tokens.get(block.token as usize)?;
+        let authored_end = map_endpoint(segments, entry.span.end, false)?;
+        Some(TapeSpan::new(token.span.start, authored_end))
+    })
+}
+
 fn mapped_export_entry(
     segments: &[ProjectionSegment],
     entry: StaticExportEntryRecord,
+    override_span: Option<TapeSpan>,
     state: &mut MappingState,
 ) -> MappedExportEntry {
+    let span = if let Some(span) = override_span {
+        state.record(true);
+        Some(span)
+    } else {
+        mapped_module_span(segments, entry.span, state)
+    };
     MappedExportEntry {
-        span: mapped_module_span(segments, entry.span, state),
+        span,
         module_request: entry
             .module_request
             .get()
@@ -512,7 +554,7 @@ fn packed_string(storage: &str, range: StringRange) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use tsrx_syntax::{ByteSpan, ProjectionSegment};
+    use tsrx_syntax::{ByteSpan, ProjectionSegment, scan_for_parser};
     use tsrx_tape_schema::{
         DiagnosticPhase, DiagnosticSeverity, DiagnosticTable, DynamicImportRecord, ModuleTable,
         TapeSpan,
@@ -527,6 +569,7 @@ mod tests {
     #[test]
     fn synthetic_result_records_are_suppressed_and_mixed_records_fail_closed() {
         let segments = authored_segment();
+        let overlay = scan_for_parser("").expect("empty overlay");
         let mut synthetic = ModuleTable::new();
         synthetic
             .push_dynamic_import(DynamicImportRecord::new(
@@ -535,8 +578,8 @@ mod tests {
             ))
             .expect("synthetic dynamic import");
         synthetic.push_import_meta(TapeSpan::new(31, 42)).expect("synthetic import.meta");
-        let (authored, suppressed) =
-            reconstruct_module(synthetic, &segments).expect("synthetic suppression");
+        let (authored, suppressed) = reconstruct_module(synthetic, &segments, overlay.view())
+            .expect("synthetic suppression");
         assert_eq!(suppressed, 2);
         assert!(authored.dynamic_imports().is_empty());
         assert!(authored.import_metas().is_empty());
@@ -549,7 +592,7 @@ mod tests {
                 TapeSpan::new(20, 22),
             ))
             .expect("mixed dynamic import");
-        assert!(reconstruct_module(mixed, &segments).is_err());
+        assert!(reconstruct_module(mixed, &segments, overlay.view()).is_err());
     }
 
     #[test]

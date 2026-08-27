@@ -135,16 +135,30 @@ pub struct ParserDynamicToken {
     pub owner: u32,
 }
 
-/// One JSX-child `@{ ... }` boundary used only by the parser projection.
+/// How one statement-bearing `@{ ... }` must be wrapped for the parser projection.
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParserCodeBlockKind {
+    /// The authored braces become a JSX expression container around the parser scaffold.
+    JsxChild,
+    /// The authored braces become the parser scaffold function's body.
+    Expression,
+}
+
+/// Generated expression prefix shared by projection and module-result reconstruction.
+pub const PARSER_EXPRESSION_CODE_BLOCK_PREFIX: &str = "void async function*()";
+
+/// One statement-bearing `@{ ... }` boundary used only by the parser projection.
 ///
 /// The ordinary structural token keeps its one-byte `@` span. This sparse side table records
-/// the matching authored braces so the parser projection can surround statement-bearing child
-/// blocks with legal, authenticated TSX without rescanning the source.
+/// the matching authored braces and their placement so the parser projection can surround the
+/// block with legal, authenticated TSX without rescanning the source.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParserCodeBlock {
     pub token: u32,
     pub body: ByteSpan,
+    pub kind: ParserCodeBlockKind,
 }
 
 /// One TSRX shorthand JSX attribute such as `{value}`.
