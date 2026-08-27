@@ -304,6 +304,12 @@ impl Scanner<'_> {
                     let identifier = &self.bytes[index..end];
                     let type_position = identifier == b"void"
                         && previous_significant_byte(self.bytes, index) == Some(b':');
+                    if identifier == b"catch"
+                        && previous_significant_byte(self.bytes, index) != Some(b'.')
+                    {
+                        let open = self.skip_trivia(end)?;
+                        self.register_lazy_catch_parameter(open)?;
+                    }
                     pending_control_paren = matches!(
                         identifier,
                         b"if" | b"for" | b"while" | b"with" | b"switch" | b"catch"

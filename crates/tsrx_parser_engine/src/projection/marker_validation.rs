@@ -338,11 +338,33 @@ fn try_marker_positioned(
             } else {
                 tail
             };
-            synthetic_comma_precedes(projected, comment.span.start)? && tail == Some(authored_tail)
+            let authored_tail =
+                catch_tail_without_lazy_sigils(authored, trivia_start, clause.body.start, overlay)?;
+            synthetic_comma_precedes(projected, comment.span.start)?
+                && tail == Some(authored_tail.as_str())
         }
         _ => false,
     };
     Ok(scaffold_matches)
+}
+
+fn catch_tail_without_lazy_sigils(
+    authored: &str,
+    start: u32,
+    end: u32,
+    overlay: OverlayView<'_>,
+) -> Result<String, TsrxParseError> {
+    let mut output = String::new();
+    let mut cursor = start;
+    for pattern in overlay.parser_lazy_patterns {
+        if pattern.ampersand < start || pattern.ampersand >= end {
+            continue;
+        }
+        output.push_str(slice(authored, cursor, pattern.ampersand)?);
+        cursor = pattern.ampersand.saturating_add(1);
+    }
+    output.push_str(slice(authored, cursor, end)?);
+    Ok(output)
 }
 
 fn strip_scaffold_name<'a>(

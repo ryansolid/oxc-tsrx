@@ -235,7 +235,9 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
             <li>{label}</li>\n\
         }</ul>\n\
     }\n\
-    function Param(&{ greeting, name }: any) @{ <p>{greeting + name}</p> }";
+    function Param(&{ greeting, name }: any) @{ <p>{greeting + name}</p> }\n\
+    function Catch() @{ @try { <A/> } @catch /* gap */ (&{ message }, reset) { <p>{message}</p> } }\n\
+    function Ordinary() { try {} catch /* gap */ (&{ cause }) { console.log(cause); } }";
     let result = parse_tsrx(&TsrxParseRequest { source }).expect("lazy destructuring patterns");
     let tape = result.program();
     let mut patterns = Vec::new();
@@ -260,7 +262,7 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
             declarators.push(object);
         }
     }
-    assert_eq!(patterns.len(), 4);
+    assert_eq!(patterns.len(), 6);
     for pattern in patterns {
         assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
         let (pattern_start, _) = span(tape, pattern);
