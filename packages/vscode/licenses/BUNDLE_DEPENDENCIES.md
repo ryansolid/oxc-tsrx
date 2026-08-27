@@ -11,7 +11,7 @@ Rolldown resolves these modules from. `lockKey` is the matching
 
 - Bundle: `packages/vscode/dist/extension.bundle.cjs`
 - Bundle SHA-256: `45f5d48168292cbdf8d5437a1cc6b648fa071cc0f626d143f3b98683fe148b59`
-- pnpm-lock.yaml SHA-256: `1eeaf90d57df84d18e4929e85a44933d687910e9abe812da06a6d01a79d57276`
+- pnpm-lock.yaml SHA-256: `01019fd3eba26b666e36fc156857fafdf3277b38afb099380beddd7e28ef9514`
 - Bundled third-party packages: 12
 
 Every listed license/copyright text is shipped byte-exactly below
