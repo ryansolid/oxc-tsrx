@@ -650,10 +650,14 @@ fn expression_position_code_blocks_match_the_javascript_parser_placements() {
         "for(;;) @{ <A/> }",
         "label: @{ <A/> }",
         "const x=@{ <A/> };",
+        "export default @{ <A/> };",
         "const F=()=>/* body */ @{ <A/> };",
         "function F() @{ return @{ <A/> }; }",
         "function F() @{ <A prop={@{ <B/> }}/> }",
         "function F() @{ <div>{@{ const value=1; <B>{value}</B> }}</div> }",
+        "const outer=@{ const inner=@{<A/>}; <B>{inner}</B> };",
+        "function F() @{ <main>@{ const inner=@{<A/>}; <B>{inner}</B> }</main> }",
+        "function F() @{ @if(ok){ const inner=@{<A/>}; <B>{inner}</B> } }",
     ] {
         let result = parse_tsrx(&TsrxParseRequest { source })
             .unwrap_or_else(|error| panic!("expression code block failed for `{source}`: {error}"));
@@ -688,6 +692,7 @@ fn expression_code_blocks_keep_their_exact_parent_fields() {
         "const init=@{<A/>};",
         "function F() @{ return @{<B/>}; }",
         "function G() @{ <C prop={@{<D/>}}>{@{<E/>}}</C> }",
+        "export default @{<Z/>};",
     );
     let result =
         parse_tsrx(&TsrxParseRequest { source }).expect("expression code-block parent fields");
@@ -716,6 +721,10 @@ fn expression_code_blocks_keep_their_exact_parent_fields() {
         list_field(tape, element, "children")[0].as_object().expect("expression child");
     require_type(tape, child_container, "JSXExpressionContainer");
     require_type(tape, object_field(tape, child_container, "expression"), "JSXCodeBlock");
+
+    let default_export = body[3].as_object().expect("default export");
+    require_type(tape, default_export, "ExportDefaultDeclaration");
+    require_type(tape, object_field(tape, default_export, "declaration"), "JSXCodeBlock");
     assert_no_scaffold(tape);
 }
 

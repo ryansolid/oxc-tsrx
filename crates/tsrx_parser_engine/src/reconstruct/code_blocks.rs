@@ -124,13 +124,8 @@ pub(super) fn collect_code_block_plans(
                 (validate_jsx_code_block_wrapper(tape, object, prefix, token_index)?, None, None)
             }
             ProjectedCodeBlockKind::Expression => {
-                let (replacement, wrapper) = validate_expression_code_block_wrapper(
-                    tape,
-                    parents,
-                    object,
-                    prefix,
-                    token_index,
-                )?;
+                let (replacement, wrapper) =
+                    validate_expression_code_block_wrapper(tape, parents, object)?;
                 (object, Some(replacement), Some(wrapper))
             }
             ProjectedCodeBlockKind::Block => (object, None, None),
@@ -215,7 +210,14 @@ pub(super) fn reconstruct_code_blocks(
                 removals,
             )?,
             ProjectedCodeBlockKind::Expression => {
-                reconstruct_expression_code_block(tape, segments, code_block, parents, starts)?;
+                reconstruct_expression_code_block(
+                    tape,
+                    segments,
+                    code_block,
+                    &plans.direct_list_policies,
+                    parents,
+                    starts,
+                )?;
             }
             ProjectedCodeBlockKind::JsxContainer => {
                 reconstruct_jsx_child_code_block(tape, segments, code_block, starts)?;
@@ -277,6 +279,7 @@ fn reconstruct_expression_code_block(
     tape: &mut FlatTape,
     segments: &[ProjectionSegment],
     code_block: ProjectedCodeBlock,
+    direct_list_policies: &[DirectListPolicy],
     parents: &ParentIndex,
     starts: &mut Vec<AuthoredStart>,
 ) -> Result<(), TsrxParseError> {
@@ -314,9 +317,53 @@ fn reconstruct_expression_code_block(
     let replacement = code_block.replacement.ok_or(TsrxParseError::Unsupported(
         "expression code block has no scaffold replacement slot",
     ))?;
+    let replacement = expression_code_block_replacement(
+        tape,
+        parents,
+        wrapper,
+        replacement,
+        direct_list_policies,
+    )?;
     ParentIndex::replace(tape, replacement, ValueRef::object(block))?;
     record_authored_span(starts, block, span);
     Ok(())
+}
+
+fn expression_code_block_replacement(
+    tape: &FlatTape,
+    parents: &ParentIndex,
+    wrapper: RecordIndex,
+    expression_slot: ParentSlot,
+    direct_list_policies: &[DirectListPolicy],
+) -> Result<ParentSlot, TsrxParseError> {
+    let Some(statement) =
+        parents.parent_container(ValueRef::object(wrapper)).and_then(ValueRef::as_object)
+    else {
+        return Ok(expression_slot);
+    };
+    if !has_type(tape, statement, r#""ExpressionStatement""#)
+        || tape.field_index(statement, "expression").and_then(|field| tape.field_value(field))
+            != Some(ValueRef::object(wrapper))
+    {
+        return Ok(expression_slot);
+    }
+    let Some(statement_slot @ ParentSlot::ListValue(_)) =
+        parents.parent_slot(ValueRef::object(statement))
+    else {
+        return Ok(expression_slot);
+    };
+    let Some(list) =
+        parents.parent_container(ValueRef::object(statement)).and_then(ValueRef::as_list)
+    else {
+        return Ok(expression_slot);
+    };
+    let Some(owner) = parents.parent_container(ValueRef::list(list)).and_then(ValueRef::as_object)
+    else {
+        return Ok(expression_slot);
+    };
+    let policy =
+        direct_list_policies.get(index_of(owner)?).copied().unwrap_or(DirectListPolicy::None);
+    Ok(if policy == DirectListPolicy::None { expression_slot } else { statement_slot })
 }
 
 fn reconstruct_jsx_child_code_block(
@@ -357,14 +404,12 @@ fn validate_expression_code_block_wrapper(
     tape: &FlatTape,
     parents: &ParentIndex,
     block: RecordIndex,
-    prefix: &str,
-    token: u32,
 ) -> Result<(ParentSlot, RecordIndex), TsrxParseError> {
     let function =
         parents.parent_container(ValueRef::object(block)).and_then(ValueRef::as_object).ok_or(
             TsrxParseError::Unsupported("expression code-block body has no scaffold function"),
         )?;
-    if validate_code_block_wrapper_function(tape, function, prefix, token)? != block {
+    if validate_expression_code_block_function(tape, function)? != block {
         return Err(TsrxParseError::Unsupported(
             "expression code-block scaffold owns a different body",
         ));
@@ -385,6 +430,25 @@ fn validate_expression_code_block_wrapper(
         TsrxParseError::Unsupported("expression code-block scaffold has no replacement slot"),
     )?;
     Ok((replacement, wrapper))
+}
+
+fn validate_expression_code_block_function(
+    tape: &FlatTape,
+    function: RecordIndex,
+) -> Result<RecordIndex, TsrxParseError> {
+    require_type(tape, function, r#""FunctionExpression""#)?;
+    if scalar_field(tape, function, "generator")? != "true"
+        || scalar_field(tape, function, "async")? != "true"
+        || scalar_field(tape, function, "id")? != "null"
+        || tape.values(list_field(tape, function, "params")?).next().is_some()
+    {
+        return Err(TsrxParseError::Unsupported(
+            "expression code-block wrapper is not an anonymous parameterless async generator",
+        ));
+    }
+    let body = object_field(tape, function, "body")?;
+    require_type(tape, body, r#""BlockStatement""#)?;
+    Ok(body)
 }
 
 fn validate_code_block_wrapper_function(

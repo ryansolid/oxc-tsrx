@@ -145,6 +145,9 @@ pub enum ParserCodeBlockKind {
     Expression,
 }
 
+/// Generated expression prefix shared by projection and module-result reconstruction.
+pub const PARSER_EXPRESSION_CODE_BLOCK_PREFIX: &str = "void async function*()";
+
 /// One statement-bearing `@{ ... }` boundary used only by the parser projection.
 ///
 /// The ordinary structural token keeps its one-byte `@` span. This sparse side table records

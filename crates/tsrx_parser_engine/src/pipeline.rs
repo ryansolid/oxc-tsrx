@@ -311,7 +311,7 @@ impl ProjectedCompletion<'_, '_, '_, '_> {
     fn finish(mut self) -> Result<TsrxParseResult, TsrxParseError> {
         let module = self
             .projected_module
-            .map(|projected| reconstruct_module(projected, self.projection.segments))
+            .map(|projected| reconstruct_module(projected, self.projection.segments, self.overlay))
             .transpose()?
             .map(|(module, _suppressed_module_records)| module);
         let authored_starts = match reconstruct_projected(

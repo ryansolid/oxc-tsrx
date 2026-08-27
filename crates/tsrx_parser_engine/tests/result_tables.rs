@@ -3,8 +3,8 @@ use tsrx_parser_engine::{
     parse_tsrx_with_options_for_compat_transfer,
 };
 use tsrx_tape_schema::{
-    Completeness, CoordinateDomain, DiagnosticPhase, FlatTape, ParseCompleteness,
-    ProjectedCommentKind, RecordIndex, ValueKind,
+    Completeness, CoordinateDomain, DiagnosticPhase, ExportExportNameKind, FlatTape,
+    ParseCompleteness, ProjectedCommentKind, RecordIndex, TapeSpan, ValueKind,
 };
 
 fn scalar_u32(tape: &FlatTape, object: RecordIndex, name: &str) -> u32 {
@@ -88,6 +88,24 @@ fn authored_module_and_comments_survive_while_projection_records_do_not() {
         assert!(spelling.starts_with("//") || spelling.starts_with("/*"));
     }
     assert!(!result.comments.string_storage().expect("UTF-8 comment storage").contains("_t"));
+}
+
+#[test]
+fn default_exported_expression_code_blocks_keep_authored_module_spans() {
+    let source = "export default @{<A/>};";
+    let result = complete(source);
+    let module = result.module.as_ref().expect("module table");
+    assert_eq!(module.static_exports().len(), 1);
+    let record = module.static_exports()[0];
+    assert_eq!(record.span, TapeSpan::new(0, u32::try_from(source.len()).unwrap()));
+    let entries = module.static_export_entries(record.entries).expect("default export entry");
+    assert_eq!(entries.len(), 1);
+    let entry = entries[0];
+    let block_start = u32::try_from(source.find("@{").unwrap()).unwrap();
+    let block_end = u32::try_from(source.find("};").unwrap() + 1).unwrap();
+    assert_eq!(entry.span, TapeSpan::new(block_start, block_end));
+    assert_eq!(entry.export_name.kind, ExportExportNameKind::Default);
+    assert_eq!(entry.export_name.span.get(), Some(TapeSpan::new(7, 14)));
 }
 
 #[test]

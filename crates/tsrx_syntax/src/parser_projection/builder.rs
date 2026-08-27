@@ -8,7 +8,8 @@ use crate::{
     diagnostics::{ProjectionError, to_u32},
     model::{
         ByteSpan, ClauseRole, ControlContext, ControlKind, EmbeddedKind, NONE, Overlay,
-        ParserCodeBlockKind, ParserDynamicKind, StructuralKind,
+        PARSER_EXPRESSION_CODE_BLOCK_PREFIX, ParserCodeBlockKind, ParserDynamicKind,
+        StructuralKind,
     },
     projection_view::ProjectionSegment,
 };
@@ -276,8 +277,7 @@ impl<'a> Builder<'a> {
                 .expect("writing to a String cannot fail");
             }
             Some(ParserCodeBlockKind::Expression) => {
-                write!(self.output, "void async function*{}J{token_index}_()", self.prefix)
-                    .expect("writing to a String cannot fail");
+                self.output.push_str(PARSER_EXPRESSION_CODE_BLOCK_PREFIX);
                 self.copy_to(start + 2)?;
                 write!(self.output, "/*{}{token_index}*/", self.prefix)
                     .expect("writing to a String cannot fail");

@@ -17,15 +17,7 @@ impl Scanner<'_> {
         index: usize,
         closing: Option<u8>,
     ) -> Result<usize, ProjectionError> {
-        self.scan_region_with_root_context(index, closing, None, false)
-    }
-
-    pub(super) fn scan_template_body(
-        &mut self,
-        index: usize,
-        closing: Option<u8>,
-    ) -> Result<usize, ProjectionError> {
-        self.scan_region_with_root_context(index, closing, None, true)
+        self.scan_region_with_root_context(index, closing, None)
     }
 
     pub(super) fn scan_expression_region(
@@ -34,7 +26,7 @@ impl Scanner<'_> {
         closing: Option<u8>,
     ) -> Result<usize, ProjectionError> {
         let root_control_start = self.skip_trivia(index)?;
-        self.scan_region_with_root_context(index, closing, Some(root_control_start), false)
+        self.scan_region_with_root_context(index, closing, Some(root_control_start))
     }
 
     #[expect(
@@ -46,7 +38,6 @@ impl Scanner<'_> {
         mut index: usize,
         closing: Option<u8>,
         root_control_start: Option<usize>,
-        template_body: bool,
     ) -> Result<usize, ProjectionError> {
         let mut delimiters = TinyStack::<(u8, bool), 16>::new();
         if let Some(closing) = closing {
@@ -179,11 +170,7 @@ impl Scanner<'_> {
                     pending_statement_body = false;
                 }
                 b'@' if self.bytes.get(index + 1) == Some(&b'{') => {
-                    let direct_template_child = template_body && delimiters.len() == 1;
-                    if (can_start_expression || pending_statement_body)
-                        && !follows_arrow
-                        && !direct_template_child
-                    {
+                    if (can_start_expression || pending_statement_body) && !follows_arrow {
                         index =
                             self.scan_parser_code_block(index, ParserCodeBlockKind::Expression)?;
                         can_start_expression = false;
@@ -345,6 +332,7 @@ impl Scanner<'_> {
                                     | b"new"
                                     | b"yield"
                                     | b"await"
+                                    | b"default"
                                     | b"in"
                                     | b"of"
                                     | b"instanceof"

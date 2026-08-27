@@ -470,7 +470,7 @@ impl Scanner<'_> {
             body: ByteSpan::new(body_start, body_start),
             kind,
         });
-        let end = self.scan_template_body(start + 2, Some(b'}'))?;
+        let end = self.scan_region(start + 2, Some(b'}'))?;
         self.parser_code_blocks[manifest].body.end = to_u32(end)?;
         Ok(end)
     }

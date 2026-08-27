@@ -37,7 +37,7 @@ impl Scanner<'_> {
             });
         }
         debug_assert_eq!(self.parents.last().copied(), Some(node));
-        let end = self.scan_template_body(start + 1, Some(b'}'))?;
+        let end = self.scan_region(start + 1, Some(b'}'))?;
         Ok(ByteSpan::new(to_u32(start)?, to_u32(end)?))
     }
 
