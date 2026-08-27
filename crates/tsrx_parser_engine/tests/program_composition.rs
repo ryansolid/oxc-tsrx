@@ -422,6 +422,125 @@ fn lazy_arrow_lookahead_reads_a_function_return_type_as_part_of_the_annotation()
 }
 
 #[test]
+fn lazy_arrow_lookahead_stops_at_a_parenthesised_function_type() {
+    // `((x: number) => number)` carries its own arrow inside the parentheses, so the `=>` that
+    // follows the annotation is the lazy arrow's and the parameter has to commit.
+    let source = "const wrap = (&{ a }): ((x: number) => number) => (x) => x + a;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("parenthesised function type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("parenthesised function type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("parenthesised function type");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // The same annotation over a method keeps its `{ … }` body, so nothing may commit.
+    let source = "const helpers = {\n\
+        build(&{ a }): ((x: number) => number) { return (x) => x + a }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("parenthesised method type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("parenthesised method type projection");
+    assert!(projection.source().contains("build(&{ a })"));
+
+    // A parameter list whose own parameter is annotated with a function type is still a function
+    // head, so its trailing `=>` belongs to the annotation rather than to the arrow.
+    let source = "const helpers = {\n\
+        chain(&{ a }): (step: (x: number) => number) => number { return (step) => step(a) }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("nested function type overlay");
+    let projection = project_for_parser(source, &overlay).expect("nested function type projection");
+    assert!(projection.source().contains("chain(&{ a })"));
+
+    // The completed function type still takes the postfix and union continuations that follow any
+    // other type, and a constructor type's parameter list remains a function head.
+    let source = "const union = (&{ a }): ((x: number) => number) | null => null;\n\
+        const array = (&{ b }): ((x: number) => number)[] => [];\n\
+        const made = (&{ c }): new (x: number) => number => c;";
+    let overlay = scan_for_parser(source).expect("completed function type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("completed function type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(!projection.source().contains("(&{ b }"));
+    assert!(!projection.source().contains("(&{ c }"));
+}
+
+#[test]
+fn parameter_type_intersections_are_not_queued_as_lazy_patterns() {
+    let source = "const pick = (x: &{ a: number }) => x;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("intersection annotation overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("intersection annotation projection");
+    assert!(projection.source().contains("(x: &{ a: number })"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("intersection annotation");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 0);
+    assert_no_scaffold(tape);
+
+    // The same holds for an intersection whose left member closed with `}`, and beside a
+    // parameter that really does carry a lazy pattern.
+    let source = "const mix = (&{ a }, x: { b: number }&{ c: string }) => [a, x];";
+    let overlay = scan_for_parser(source).expect("mixed intersection overlay");
+    let projection = project_for_parser(source, &overlay).expect("mixed intersection projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(projection.source().contains("{ b: number }&{ c: string }"));
+
+    // The rename form that made `:` an admitting predecessor still queues its pattern.
+    let source = "const rename = ({ a: &{ b } }) => b;";
+    let overlay = scan_for_parser(source).expect("rename overlay");
+    let projection = project_for_parser(source, &overlay).expect("rename projection");
+    assert!(!projection.source().contains("a: &{ b }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("destructuring rename");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn lazy_arrow_lookahead_reads_an_import_type_return_annotation() {
+    let source = "const load = (&{ a }): import(\"mod\").Shape => a;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("import type overlay");
+    let projection = project_for_parser(source, &overlay).expect("import type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("import type return annotation");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // An import type over a method still leaves the `{ … }` body outside the annotation.
+    let source = "const helpers = {\n\
+        load(&{ a }): import(\"mod\").Shape { return a }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("import type method overlay");
+    let projection = project_for_parser(source, &overlay).expect("import type method projection");
+    assert!(projection.source().contains("load(&{ a })"));
+}
+
+fn lazy_pattern_count(tape: &FlatTape) -> usize {
+    (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                .is_some_and(|kind| matches!(kind, r#""ArrayPattern""# | r#""ObjectPattern""#))
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .count()
+}
+
+#[test]
 fn rest_lazy_parameters_admit_trivia_between_the_spread_and_the_pattern() {
     let source = "const gather = (head: string, ... /* gap */ &{ a, b }) => [head, a, b];\n\
         const spread = (lead: string, ... // gap\n\

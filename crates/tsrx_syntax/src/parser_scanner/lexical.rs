@@ -319,41 +319,50 @@ impl Scanner<'_> {
             .map(|_| pattern_start)
     }
 
+    /// `inside_parentheses` says the innermost group still open is a `(` one. A statement cannot
+    /// start there — only a `for` header's `;` reaches statement position inside parentheses — so
+    /// the predecessors that are ambiguous between a statement boundary and a type do not admit
+    /// the sigil: `:` opens a parameter's annotation and `}` closes an object type in one.
     pub(super) fn standalone_lazy_pattern_start(
         &self,
         ampersand: usize,
         statement_context: bool,
+        inside_parentheses: bool,
     ) -> Option<usize> {
         let pattern_start = ampersand.checked_add(1)?;
         if !matches!(self.bytes.get(pattern_start), Some(b'[' | b'{')) {
             return None;
         }
         let previous = previous_significant_byte(self.bytes, ampersand);
-        if previous.is_none()
-            || matches!(previous, Some(b';' | b'{' | b'}' | b':'))
-            || statement_context
-        {
-            Some(pattern_start)
-        } else {
-            None
-        }
+        let admitted = previous.is_none()
+            || previous == Some(b';')
+            || matches!(previous, Some(b'{' | b'}' | b':')) && !inside_parentheses
+            || statement_context;
+        admitted.then_some(pattern_start)
     }
 
+    /// `pattern_interior` says the innermost group still open at the ampersand is an object or
+    /// array one, so the position is inside a binding pattern rather than directly in the
+    /// parameter list. It is what separates the two meanings of a preceding `:`.
     pub(super) fn lazy_arrow_pattern_start(
         &self,
         ampersand: usize,
         parameter_open: Option<usize>,
         previous_token: Option<u8>,
+        pattern_interior: bool,
     ) -> Option<usize> {
         parameter_open?;
         let pattern_start = ampersand.checked_add(1)?;
-        if !matches!(self.bytes.get(pattern_start), Some(b'[' | b'{'))
-            || !(matches!(previous_token, Some(b'(' | b'[' | b'{' | b',' | b':'))
-                || self.follows_rest_spread(ampersand))
-        {
+        if !matches!(self.bytes.get(pattern_start), Some(b'[' | b'{')) {
             return None;
         }
-        Some(pattern_start)
+        // A `:` inside a pattern renames into a nested lazy pattern (`{ a: &{ b } }`). The same
+        // `:` written directly in the parameter list opens a type annotation instead, and a type
+        // may perfectly well lead with the intersection `&` of an object type.
+        let admitted = matches!(previous_token, Some(b'(' | b'[' | b'{' | b','))
+            || (previous_token == Some(b':') && pattern_interior)
+            || self.follows_rest_spread(ampersand);
+        admitted.then_some(pattern_start)
     }
 
     /// `...&{ … }` is a rest lazy parameter, so the spread's own `.` has to admit the pattern the
@@ -462,12 +471,21 @@ impl Scanner<'_> {
             let byte = *self.bytes.get(index)?;
             // Only a parenthesised parameter list can carry a function type's `=>`; every other
             // way of reaching a `=>` means the type already ended.
-            let mut function_head = byte == b'(';
+            let mut function_head = false;
+            // `import("mod")` is the one type form whose name takes a call-like group.
+            let mut import_head = false;
             match byte {
-                b'(' | b'[' | b'{' => index = self.skip_type_group(index)?,
+                b'(' | b'[' | b'{' => {
+                    let group = self.skip_type_group(index)?;
+                    index = group.end;
+                    // A parenthesised group holding its own top-level `=>` is already a complete
+                    // function type — `((x: T) => U)` — rather than the parameter list opening
+                    // one, so the `=>` after it belongs to whatever follows the annotation.
+                    function_head = byte == b'(' && !group.complete_function_type;
+                }
                 // Type parameters lead a generic function type, whose parameter list is the type.
                 b'<' => {
-                    index = self.skip_type_group(index)?;
+                    index = self.skip_type_group(index)?.end;
                     continue;
                 }
                 // A leading `|` or `&`, and a numeric literal's sign, carry no type of their own.
@@ -480,7 +498,9 @@ impl Scanner<'_> {
                 b'0'..=b'9' => index = self.skip_number(index),
                 _ if self.identifier_start_width(index).is_some() => {
                     let end = self.skip_identifier(index);
-                    let leads_a_type = TYPE_PREFIX_KEYWORDS.contains(&&self.bytes[index..end]);
+                    let name = &self.bytes[index..end];
+                    let leads_a_type = TYPE_PREFIX_KEYWORDS.contains(&name);
+                    import_head = matches!(name, b"import");
                     index = end;
                     if leads_a_type {
                         continue;
@@ -492,8 +512,11 @@ impl Scanner<'_> {
             loop {
                 let next = self.skip_trivia(index).ok()?;
                 match self.bytes.get(next) {
+                    // The module specifier of `import("mod").T`, the only call-like group a type
+                    // may take. Its qualified name and type arguments continue below as usual.
+                    Some(b'(') if import_head => index = self.skip_type_group(next)?.end,
                     // `T[]`, `T[K]`, and `T<Args>` all extend the type they follow.
-                    Some(b'[' | b'<') => index = self.skip_type_group(next)?,
+                    Some(b'[' | b'<') => index = self.skip_type_group(next)?.end,
                     // A qualified name: `A.B.C`.
                     Some(b'.') => {
                         let name = self.skip_trivia(next + 1).ok()?;
@@ -505,6 +528,7 @@ impl Scanner<'_> {
                     _ => break,
                 }
                 function_head = false;
+                import_head = false;
             }
 
             let next = self.skip_trivia(index).ok()?;
@@ -544,10 +568,18 @@ impl Scanner<'_> {
     /// opaque. A closer that does not match, and a `;` inside an angle group, both mean the group
     /// was never a group — most often a `<` that was really a comparison — and end the scan rather
     /// than let it run away through the rest of the file.
-    fn skip_type_group(&self, open: usize) -> Option<usize> {
-        let mut closers = vec![group_close(*self.bytes.get(open)?)?];
+    fn skip_type_group(&self, open: usize) -> Option<TypeGroup> {
+        let open_byte = *self.bytes.get(open)?;
+        let parenthesised = open_byte == b'(';
+        let mut closers = vec![group_close(open_byte)?];
+        // A `=>` written directly in a parenthesised group belongs to a parameter's annotation
+        // when a `:` has already opened one, and to the group's own function type otherwise.
+        let mut annotated = false;
+        let mut conditionals = 0_u32;
+        let mut complete_function_type = false;
         let mut index = open + 1;
         while let Some(&byte) = self.bytes.get(index) {
+            let outermost = parenthesised && closers.len() == 1;
             match byte {
                 b'\'' | b'"' => index = self.skip_quote(index, byte).ok()?,
                 b'`' => index = self.skip_template_raw(index, self.bytes.len()).ok()?,
@@ -558,7 +590,27 @@ impl Scanner<'_> {
                     index = self.skip_block_comment(index).ok()?;
                 }
                 // A nested function type's `=>` ends in a `>` that closes no angle group.
-                b'=' if self.bytes.get(index + 1) == Some(&b'>') => index += 2,
+                b'=' if self.bytes.get(index + 1) == Some(&b'>') => {
+                    complete_function_type |= outermost && !annotated;
+                    index += 2;
+                }
+                // `a?: T` marks an optional parameter, so its `:` still opens an annotation. Any
+                // other `?` opens a conditional type, whose `:` only separates the branches.
+                b'?' if outermost => {
+                    let next = self.skip_trivia(index + 1).ok()?;
+                    if self.bytes.get(next) != Some(&b':') {
+                        conditionals += 1;
+                    }
+                    index += 1;
+                }
+                b':' if outermost => {
+                    if conditionals > 0 {
+                        conditionals -= 1;
+                    } else {
+                        annotated = true;
+                    }
+                    index += 1;
+                }
                 b'(' | b'[' | b'{' | b'<' => {
                     closers.push(group_close(byte)?);
                     index += 1;
@@ -570,7 +622,7 @@ impl Scanner<'_> {
                     closers.pop();
                     index += 1;
                     if closers.is_empty() {
-                        return Some(index);
+                        return Some(TypeGroup { end: index, complete_function_type });
                     }
                 }
                 b';' if closers.last() == Some(&b'>') => return None,
@@ -622,6 +674,15 @@ impl Scanner<'_> {
         }
         index
     }
+}
+
+/// One balanced group consumed in type position.
+struct TypeGroup {
+    /// The index just past the group's closing delimiter.
+    end: usize,
+    /// The group is a function type in its own right rather than the parameter list opening one,
+    /// so a following `=>` continues something else.
+    complete_function_type: bool,
 }
 
 /// Type operators that lead the type they apply to, so consumption continues past them into it.

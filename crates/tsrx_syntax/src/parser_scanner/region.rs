@@ -232,11 +232,21 @@ impl Scanner<'_> {
                     pending_statement_body = false;
                 }
                 b'&' if self
-                    .lazy_arrow_pattern_start(index, paren_starts.last(), previous_token)
+                    .lazy_arrow_pattern_start(
+                        index,
+                        paren_starts.last(),
+                        previous_token,
+                        pattern_interior(&delimiters),
+                    )
                     .is_some() =>
                 {
                     let pattern_start = self
-                        .lazy_arrow_pattern_start(index, paren_starts.last(), previous_token)
+                        .lazy_arrow_pattern_start(
+                            index,
+                            paren_starts.last(),
+                            previous_token,
+                            pattern_interior(&delimiters),
+                        )
                         .ok_or(ProjectionError::StructuralMismatch)?;
                     pending_lazy_arrow_patterns.push((
                         paren_starts.last().ok_or(ProjectionError::StructuralMismatch)?,
@@ -254,6 +264,7 @@ impl Scanner<'_> {
                     .standalone_lazy_pattern_start(
                         index,
                         closed_control_paren || pending_statement_body,
+                        inside_parentheses(&delimiters),
                     )
                     .is_some() =>
                 {
@@ -261,6 +272,7 @@ impl Scanner<'_> {
                         .standalone_lazy_pattern_start(
                             index,
                             closed_control_paren || pending_statement_body,
+                            inside_parentheses(&delimiters),
                         )
                         .ok_or(ProjectionError::StructuralMismatch)?;
                     self.parser_lazy_patterns.push(ParserLazyPattern {
@@ -458,4 +470,17 @@ impl Scanner<'_> {
         }
         Ok(index)
     }
+}
+
+/// Whether the innermost group still open is an object or array one — the interior of a
+/// destructuring pattern rather than the parameter list that encloses it. A `(` here means the
+/// cursor sits directly among the parameters, where a `:` is a type annotation.
+fn pattern_interior(delimiters: &TinyStack<(u8, bool), 16>) -> bool {
+    matches!(delimiters.last(), Some((b'}' | b']', _)))
+}
+
+/// Whether the innermost group still open is a `(` one, where a parameter list or an ordinary
+/// parenthesised expression lives and a statement cannot begin.
+fn inside_parentheses(delimiters: &TinyStack<(u8, bool), 16>) -> bool {
+    matches!(delimiters.last(), Some((b')', _)))
 }
