@@ -50,6 +50,9 @@ impl Scanner<'_> {
         let mut pending_statement_body = false;
         let mut pending_arrow_body = false;
         let mut parens = TinyStack::<bool, 16>::new();
+        let mut paren_starts = TinyStack::<usize, 16>::new();
+        let mut pending_lazy_arrow_patterns = Vec::<(usize, usize, usize)>::new();
+        let mut previous_token = None;
 
         while index < self.bytes.len() {
             let byte = self.bytes[index];
@@ -60,6 +63,8 @@ impl Scanner<'_> {
 
             let follows_arrow = pending_arrow_body;
             pending_arrow_body = false;
+            let records_previous_token =
+                !matches!(self.bytes.get(index..index + 2), Some(b"//" | b"/*"));
             match byte {
                 b'\'' | b'"' => {
                     index = self.skip_quote(index, byte)?;
@@ -210,31 +215,70 @@ impl Scanner<'_> {
                     closed_control_paren = false;
                     pending_statement_body = false;
                 }
-                b'&' if self.lazy_pattern_start(index).is_some()
-                    || self
-                        .standalone_lazy_pattern_start(
-                            index,
-                            closed_control_paren || pending_statement_body,
-                        )
-                        .is_some() =>
-                {
-                    let (pattern_start, standalone) =
-                        if let Some(pattern_start) = self.lazy_pattern_start(index) {
-                            (pattern_start, false)
-                        } else {
-                            (
-                                self.standalone_lazy_pattern_start(
-                                    index,
-                                    closed_control_paren || pending_statement_body,
-                                )
-                                .ok_or(ProjectionError::StructuralMismatch)?,
-                                true,
-                            )
-                        };
+                b'&' if self.lazy_pattern_start(index).is_some() => {
+                    let pattern_start = self
+                        .lazy_pattern_start(index)
+                        .ok_or(ProjectionError::StructuralMismatch)?;
                     self.parser_lazy_patterns.push(ParserLazyPattern {
                         ampersand: to_u32(index)?,
                         pattern_start: to_u32(pattern_start)?,
-                        standalone,
+                        standalone: false,
+                    });
+                    index += 1;
+                    can_start_expression = true;
+                    can_start_jsx = true;
+                    pending_control_paren = false;
+                    closed_control_paren = false;
+                    pending_statement_body = false;
+                }
+                b'&' if self
+                    .lazy_arrow_pattern_start(
+                        index,
+                        paren_starts.last(),
+                        previous_token,
+                        pattern_interior(&delimiters),
+                    )
+                    .is_some() =>
+                {
+                    let pattern_start = self
+                        .lazy_arrow_pattern_start(
+                            index,
+                            paren_starts.last(),
+                            previous_token,
+                            pattern_interior(&delimiters),
+                        )
+                        .ok_or(ProjectionError::StructuralMismatch)?;
+                    pending_lazy_arrow_patterns.push((
+                        paren_starts.last().ok_or(ProjectionError::StructuralMismatch)?,
+                        index,
+                        pattern_start,
+                    ));
+                    index += 1;
+                    can_start_expression = true;
+                    can_start_jsx = true;
+                    pending_control_paren = false;
+                    closed_control_paren = false;
+                    pending_statement_body = false;
+                }
+                b'&' if self
+                    .standalone_lazy_pattern_start(
+                        index,
+                        closed_control_paren || pending_statement_body,
+                        inside_parentheses(&delimiters),
+                    )
+                    .is_some() =>
+                {
+                    let pattern_start = self
+                        .standalone_lazy_pattern_start(
+                            index,
+                            closed_control_paren || pending_statement_body,
+                            inside_parentheses(&delimiters),
+                        )
+                        .ok_or(ProjectionError::StructuralMismatch)?;
+                    self.parser_lazy_patterns.push(ParserLazyPattern {
+                        ampersand: to_u32(index)?,
+                        pattern_start: to_u32(pattern_start)?,
+                        standalone: true,
                     });
                     index += 1;
                     can_start_expression = true;
@@ -263,6 +307,7 @@ impl Scanner<'_> {
                     delimiters.push((close, block));
                     if byte == b'(' {
                         parens.push(pending_control_paren);
+                        paren_starts.push(index);
                     }
                     pending_control_paren = false;
                     closed_control_paren = false;
@@ -273,6 +318,7 @@ impl Scanner<'_> {
                 }
                 b')' | b']' | b'}' => {
                     let mut closed_block = false;
+                    let parameter_open = (byte == b')').then(|| paren_starts.pop()).flatten();
                     if delimiters.last().is_some_and(|delimiter| delimiter.0 == byte) {
                         closed_block = delimiters.pop().is_some_and(|delimiter| delimiter.1);
                         index += 1;
@@ -286,6 +332,36 @@ impl Scanner<'_> {
                         });
                     } else {
                         index += 1;
+                    }
+                    if let Some(parameter_open) = parameter_open {
+                        // Only parens that queued a marker are worth the lookahead; classifying
+                        // every closing paren would rescan the tail of the file each time.
+                        let is_arrow = pending_lazy_arrow_patterns
+                            .iter()
+                            .any(|(open, _, _)| *open == parameter_open)
+                            && self.arrow_follows_parameter_list(index);
+                        let mut pending = 0;
+                        while pending < pending_lazy_arrow_patterns.len() {
+                            let (open, ampersand, pattern_start) =
+                                pending_lazy_arrow_patterns[pending];
+                            if open != parameter_open {
+                                pending += 1;
+                                continue;
+                            }
+                            pending_lazy_arrow_patterns.remove(pending);
+                            if is_arrow {
+                                let pattern = ParserLazyPattern {
+                                    ampersand: to_u32(ampersand)?,
+                                    pattern_start: to_u32(pattern_start)?,
+                                    standalone: false,
+                                };
+                                let insert =
+                                    self.parser_lazy_patterns.partition_point(|existing| {
+                                        existing.ampersand < pattern.ampersand
+                                    });
+                                self.parser_lazy_patterns.insert(insert, pattern);
+                            }
+                        }
                     }
                     can_start_expression = if byte == b')' {
                         let control = parens.pop().unwrap_or(false);
@@ -381,6 +457,9 @@ impl Scanner<'_> {
                     pending_statement_body = false;
                 }
             }
+            if records_previous_token {
+                previous_token = Some(byte);
+            }
         }
 
         if closing.is_some() {
@@ -391,4 +470,17 @@ impl Scanner<'_> {
         }
         Ok(index)
     }
+}
+
+/// Whether the innermost group still open is an object or array one — the interior of a
+/// destructuring pattern rather than the parameter list that encloses it. A `(` here means the
+/// cursor sits directly among the parameters, where a `:` is a type annotation.
+fn pattern_interior(delimiters: &TinyStack<(u8, bool), 16>) -> bool {
+    matches!(delimiters.last(), Some((b'}' | b']', _)))
+}
+
+/// Whether the innermost group still open is a `(` one, where a parameter list or an ordinary
+/// parenthesised expression lives and a statement cannot begin.
+fn inside_parentheses(delimiters: &TinyStack<(u8, bool), 16>) -> bool {
+    matches!(delimiters.last(), Some((b')', _)))
 }
