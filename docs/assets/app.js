@@ -1,6 +1,13 @@
 // OXC for TSRX docs client — vanilla JS: theme, nav drawer, copy, outline,
 // search, and Navigation-API SPA routing (progressive enhancement).
 
+// This module is served as app.js?v=<hash> so a deploy never pairs fresh HTML
+// with a stale cached script. `new URL('./x.js', import.meta.url)` drops that
+// query, so every lazily imported sibling would be fetched unversioned and
+// could be served from cache forever. Re-append the search we were loaded with
+// (empty in a dev server that serves us unversioned) to every lazy import.
+const ASSET_VERSION = new URL(import.meta.url).search
+
 // ---------- theme toggle (persistent chrome) ----------
 const themeToggle = document.getElementById('theme-toggle')
 const root = document.documentElement
@@ -690,7 +697,7 @@ function initPage() {
       '[data-matrix-filter], [data-review-route], [data-editor-replay], [data-chooser]',
     )
   ) {
-    import(new URL('./interactive.js', import.meta.url))
+    import(new URL(`./interactive.js${ASSET_VERSION}`, import.meta.url))
       .then((module) => module.init(pageCleanupCallbacks))
       .catch(() => {})
   }
@@ -698,7 +705,7 @@ function initPage() {
   const demo = document.getElementById('hero-demo')
   if (demo && !demo.dataset.ready) {
     demo.dataset.ready = '1'
-    import(new URL('./playground.js', import.meta.url))
+    import(new URL(`./playground.js${ASSET_VERSION}`, import.meta.url))
       .then((module) => module.initDemo(demo))
       .catch(() => {})
   }
@@ -706,16 +713,17 @@ function initPage() {
     '.comp-row[data-key="oxlint"], .comp-row[data-key="oxcTsrx"], .comp-row[data-key="oxcTsrxMixed"]',
   )
   const chart = document.querySelector('.comp-chart')
-  if (
-    fuelRows.length &&
-    chart &&
-    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  ) {
+  // Reduced motion no longer skips the plume. Skipping it left those readers on
+  // the CSS fallback gradient — a visibly different chart, not a calmer one.
+  // fuel.js reads the preference itself and paints a single still frame, so the
+  // picture matches and nothing moves. WebGL being unavailable still falls all
+  // the way back to the CSS fill.
+  if (fuelRows.length && chart) {
     const io = new IntersectionObserver(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         io.disconnect()
-        import(new URL('./fuel.js', import.meta.url))
+        import(new URL(`./fuel.js${ASSET_VERSION}`, import.meta.url))
           .then((module) => module.init(fuelRows, pageCleanupCallbacks))
           .catch(() => {})
       },
@@ -1112,7 +1120,7 @@ let selectedIndex = -1
 function loadSearch() {
   searchReady ??= (async () => {
     const [{ default: MiniSearch }, response] = await Promise.all([
-      import(new URL('./minisearch/index.js', import.meta.url)),
+      import(new URL(`./minisearch/index.js${ASSET_VERSION}`, import.meta.url)),
       fetch(new URL('../search-index.json', import.meta.url)),
     ])
     const documents = await response.json()
