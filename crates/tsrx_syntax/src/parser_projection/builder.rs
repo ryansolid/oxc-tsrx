@@ -8,7 +8,7 @@ use crate::{
     diagnostics::{ProjectionError, to_u32},
     model::{
         ByteSpan, ClauseRole, ControlContext, ControlKind, EmbeddedKind, NONE, Overlay,
-        ParserDynamicKind, StructuralKind,
+        ParserCodeBlockKind, ParserDynamicKind, StructuralKind,
     },
     projection_view::ProjectionSegment,
 };
@@ -261,27 +261,42 @@ impl<'a> Builder<'a> {
         token_index: u32,
         start: usize,
     ) -> Result<(), ProjectionError> {
-        // Keep the authored opening brace affine. A JSX-child code block then gets an
-        // authenticated function wrapper so its body may contain statements; ordinary blocks
-        // need only the marker after the brace.
+        // Keep the authored opening brace affine. It is either the ordinary function body's
+        // brace, a JSX-child expression container, or the authenticated expression scaffold's
+        // function-body brace.
         self.cursor = start + 1;
-        self.copy_to(start + 2)?;
-        if self.parser_code_block(token_index).is_some() {
-            write!(
-                self.output,
-                "(async function*{}J{token_index}_(){{/*{}{token_index}*/",
-                self.prefix, self.prefix
-            )
-            .expect("writing to a String cannot fail");
-        } else {
-            write!(self.output, "/*{}{token_index}*/", self.prefix)
+        match self.parser_code_block_kind(token_index) {
+            Some(ParserCodeBlockKind::JsxChild) => {
+                self.copy_to(start + 2)?;
+                write!(
+                    self.output,
+                    "(async function*{}J{token_index}_(){{/*{}{token_index}*/",
+                    self.prefix, self.prefix
+                )
                 .expect("writing to a String cannot fail");
+            }
+            Some(ParserCodeBlockKind::Expression) => {
+                write!(self.output, "void async function*{}J{token_index}_()", self.prefix)
+                    .expect("writing to a String cannot fail");
+                self.copy_to(start + 2)?;
+                write!(self.output, "/*{}{token_index}*/", self.prefix)
+                    .expect("writing to a String cannot fail");
+            }
+            None => {
+                self.copy_to(start + 2)?;
+                write!(self.output, "/*{}{token_index}*/", self.prefix)
+                    .expect("writing to a String cannot fail");
+            }
         }
         Ok(())
     }
 
-    fn parser_code_block(&self, token: u32) -> Option<usize> {
-        self.overlay.parser_code_blocks.binary_search_by_key(&token, |block| block.token).ok()
+    fn parser_code_block_kind(&self, token: u32) -> Option<ParserCodeBlockKind> {
+        self.overlay
+            .parser_code_blocks
+            .binary_search_by_key(&token, |block| block.token)
+            .ok()
+            .map(|index| self.overlay.parser_code_blocks[index].kind)
     }
 
     pub(super) fn parser_code_block_end(
@@ -300,8 +315,15 @@ impl<'a> Builder<'a> {
                 offset: block.body.end.saturating_sub(1),
             });
         }
-        self.copy_to(closing)?;
-        self.output.push_str("})");
+        match block.kind {
+            ParserCodeBlockKind::JsxChild => {
+                self.copy_to(closing)?;
+                self.output.push_str("})");
+            }
+            ParserCodeBlockKind::Expression => {
+                self.copy_to(block.body.end as usize)?;
+            }
+        }
         Ok(())
     }
 

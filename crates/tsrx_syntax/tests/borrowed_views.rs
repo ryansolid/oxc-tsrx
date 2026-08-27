@@ -1,8 +1,8 @@
 use tsrx_syntax::{
     ByteSpan, ClauseRole, ControlKind, EmbeddedKind, ForHeader, NONE_INDEX, OverlayClause,
     OverlayDynamicTag, OverlayEmbedded, OverlayNode, OverlayStyleBlock, OverlayToken,
-    ParserCodeBlock, ParserDynamicToken, ProjectionSegment, project_for_lint, scan,
-    scan_for_parser,
+    ParserCodeBlock, ParserCodeBlockKind, ParserDynamicToken, ProjectionSegment, project_for_lint,
+    scan, scan_for_parser,
 };
 
 const fn assert_copy<T: Copy>() {}
@@ -27,7 +27,7 @@ fn borrowed_records_have_frozen_fixed_width_layouts() {
     assert_eq!(size_of::<OverlayClause>(), 72);
     assert_eq!(size_of::<OverlayEmbedded>(), 16);
     assert_eq!(size_of::<ParserDynamicToken>(), 12);
-    assert_eq!(size_of::<ParserCodeBlock>(), 12);
+    assert_eq!(size_of::<ParserCodeBlock>(), 16);
     assert_eq!(size_of::<OverlayDynamicTag>(), 48);
     assert_eq!(size_of::<OverlayStyleBlock>(), 20);
     assert_eq!(size_of::<ForHeader>(), 36);
@@ -100,18 +100,26 @@ fn overlay_view_exposes_dynamic_style_and_embedded_records_without_copying() {
 }
 
 #[test]
-fn parser_view_records_sparse_jsx_child_code_block_boundaries_without_rescanning() {
-    let source = "function F() @{ <main>@{ const x=1; <A>{x}</A> }</main> }";
+fn parser_view_records_sparse_projected_code_block_boundaries_without_rescanning() {
+    let source = "function F() @{ const value=@{ <B/> }; <main>@{ const x=1; <A>{x}</A> }</main> }";
     let ordinary = scan(source).expect("ordinary overlay");
     assert!(ordinary.view().parser_code_blocks.is_empty());
 
     let overlay = scan_for_parser(source).expect("parser overlay");
     let view = overlay.view();
-    assert_eq!(view.parser_code_blocks.len(), 1);
-    let block = view.parser_code_blocks[0];
-    assert_eq!(view.tokens[block.token as usize].kind, tsrx_syntax::StructuralKind::FunctionBody);
+    assert_eq!(view.parser_code_blocks.len(), 2);
+    let expression = view.parser_code_blocks[0];
     assert_eq!(
-        &source[block.body.start as usize..block.body.end as usize],
+        view.tokens[expression.token as usize].kind,
+        tsrx_syntax::StructuralKind::FunctionBody
+    );
+    assert_eq!(expression.kind, ParserCodeBlockKind::Expression);
+    assert_eq!(&source[expression.body.start as usize..expression.body.end as usize], "{ <B/> }");
+    let child = view.parser_code_blocks[1];
+    assert_eq!(view.tokens[child.token as usize].kind, tsrx_syntax::StructuralKind::FunctionBody);
+    assert_eq!(child.kind, ParserCodeBlockKind::JsxChild);
+    assert_eq!(
+        &source[child.body.start as usize..child.body.end as usize],
         "{ const x=1; <A>{x}</A> }"
     );
 }

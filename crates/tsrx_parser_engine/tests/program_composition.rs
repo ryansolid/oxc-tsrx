@@ -641,7 +641,7 @@ fn functions_methods_arrows_and_ordinary_blocks_interleave_without_cross_associa
 }
 
 #[test]
-fn unimplemented_general_code_block_expressions_remain_fail_closed() {
+fn expression_position_code_blocks_match_the_javascript_parser_placements() {
     for source in [
         "@{ <A/> }",
         "if(ok) @{ <A/> }",
@@ -649,13 +649,79 @@ fn unimplemented_general_code_block_expressions_remain_fail_closed() {
         "do @{ <A/> }; while(ok);",
         "for(;;) @{ <A/> }",
         "label: @{ <A/> }",
-        "try @{ <A/> } catch {}",
         "const x=@{ <A/> };",
+        "const F=()=>/* body */ @{ <A/> };",
         "function F() @{ return @{ <A/> }; }",
         "function F() @{ <A prop={@{ <B/> }}/> }",
+        "function F() @{ <div>{@{ const value=1; <B>{value}</B> }}</div> }",
     ] {
-        assert_failed(source);
+        let result = parse_tsrx(&TsrxParseRequest { source })
+            .unwrap_or_else(|error| panic!("expression code block failed for `{source}`: {error}"));
+        assert_eq!(
+            result.status,
+            tsrx_tape_schema::ParseCompleteness::Complete,
+            "expression code block should parse: {source}"
+        );
+        let tape = result.program();
+        let blocks = (0..tape.object_count())
+            .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+            .filter(|object| {
+                tape.field_index(*object, "type")
+                    .and_then(|field| tape.field_value(field))
+                    .and_then(|value| tape.scalar(value))
+                    == Some(r#""JSXCodeBlock""#)
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(blocks.len(), source.match_indices("@{").count(), "{source}");
+        for block in blocks {
+            let (start, end) = span(tape, block);
+            assert_eq!(&source[start as usize..start as usize + 2], "@{", "{source}");
+            assert_eq!(&source[end as usize - 1..end as usize], "}", "{source}");
+        }
+        assert_no_scaffold(tape);
     }
+}
+
+#[test]
+fn expression_code_blocks_keep_their_exact_parent_fields() {
+    let source = concat!(
+        "const init=@{<A/>};",
+        "function F() @{ return @{<B/>}; }",
+        "function G() @{ <C prop={@{<D/>}}>{@{<E/>}}</C> }",
+    );
+    let result =
+        parse_tsrx(&TsrxParseRequest { source }).expect("expression code-block parent fields");
+    let tape = result.program();
+    let body = program_body(tape);
+
+    let declaration = body[0].as_object().expect("init declaration");
+    let declarator =
+        list_field(tape, declaration, "declarations")[0].as_object().expect("init declarator");
+    require_type(tape, object_field(tape, declarator, "init"), "JSXCodeBlock");
+
+    let f = body[1].as_object().expect("F");
+    let return_statement =
+        list_field(tape, code_block(tape, f), "body")[0].as_object().expect("return statement");
+    require_type(tape, return_statement, "ReturnStatement");
+    require_type(tape, object_field(tape, return_statement, "argument"), "JSXCodeBlock");
+
+    let g = body[2].as_object().expect("G");
+    let element = rendered(tape, code_block(tape, g));
+    let opening = object_field(tape, element, "openingElement");
+    let attribute = list_field(tape, opening, "attributes")[0].as_object().expect("prop attribute");
+    let attribute_container = object_field(tape, attribute, "value");
+    require_type(tape, attribute_container, "JSXExpressionContainer");
+    require_type(tape, object_field(tape, attribute_container, "expression"), "JSXCodeBlock");
+    let child_container =
+        list_field(tape, element, "children")[0].as_object().expect("expression child");
+    require_type(tape, child_container, "JSXExpressionContainer");
+    require_type(tape, object_field(tape, child_container, "expression"), "JSXCodeBlock");
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn code_blocks_cannot_replace_javascript_try_blocks() {
+    assert_failed("try @{ <A/> } catch {}");
 }
 
 #[test]

@@ -47,4 +47,8 @@ impl<T: Copy, const N: usize> TinyStack<T, N> {
     pub(super) const fn is_empty(&self) -> bool {
         self.length == 0
     }
+
+    pub(super) const fn len(&self) -> usize {
+        self.length
+    }
 }

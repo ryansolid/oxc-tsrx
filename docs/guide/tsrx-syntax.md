@@ -20,12 +20,14 @@ that tells you what it found and where.
 
 `@{ }` is a statement container, the successor and extension of JSX expression
 containers: where JSX's `{ }` holds a single expression, `@{ }` holds ordinary
-statements.
+statements followed by an optional rendered value. Statement containers may be
+used as function bodies, statements, expressions, or JSX children:
 
 ```tsrx
-@{
+const summary = @{
   const doubled = count * 2;
-}
+  <strong>{doubled}</strong>
+};
 ```
 
 ### Conditionals

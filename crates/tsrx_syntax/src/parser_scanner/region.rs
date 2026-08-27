@@ -3,7 +3,7 @@
 
 use crate::{
     diagnostics::{ProjectionError, to_u32},
-    model::{ParserLazyPattern, StructuralKind},
+    model::{ParserCodeBlockKind, ParserLazyPattern, StructuralKind},
 };
 
 use super::Scanner;
@@ -17,7 +17,15 @@ impl Scanner<'_> {
         index: usize,
         closing: Option<u8>,
     ) -> Result<usize, ProjectionError> {
-        self.scan_region_with_root_context(index, closing, None)
+        self.scan_region_with_root_context(index, closing, None, false)
+    }
+
+    pub(super) fn scan_template_body(
+        &mut self,
+        index: usize,
+        closing: Option<u8>,
+    ) -> Result<usize, ProjectionError> {
+        self.scan_region_with_root_context(index, closing, None, true)
     }
 
     pub(super) fn scan_expression_region(
@@ -26,7 +34,7 @@ impl Scanner<'_> {
         closing: Option<u8>,
     ) -> Result<usize, ProjectionError> {
         let root_control_start = self.skip_trivia(index)?;
-        self.scan_region_with_root_context(index, closing, Some(root_control_start))
+        self.scan_region_with_root_context(index, closing, Some(root_control_start), false)
     }
 
     #[expect(
@@ -38,6 +46,7 @@ impl Scanner<'_> {
         mut index: usize,
         closing: Option<u8>,
         root_control_start: Option<usize>,
+        template_body: bool,
     ) -> Result<usize, ProjectionError> {
         let mut delimiters = TinyStack::<(u8, bool), 16>::new();
         if let Some(closing) = closing {
@@ -48,6 +57,7 @@ impl Scanner<'_> {
         let mut pending_control_paren = false;
         let mut closed_control_paren = false;
         let mut pending_statement_body = false;
+        let mut pending_arrow_body = false;
         let mut parens = TinyStack::<bool, 16>::new();
 
         while index < self.bytes.len() {
@@ -57,6 +67,8 @@ impl Scanner<'_> {
                 continue;
             }
 
+            let follows_arrow = pending_arrow_body;
+            pending_arrow_body = false;
             match byte {
                 b'\'' | b'"' => {
                     index = self.skip_quote(index, byte)?;
@@ -76,9 +88,11 @@ impl Scanner<'_> {
                 }
                 b'/' if self.bytes.get(index + 1) == Some(&b'/') => {
                     index = self.skip_line_comment(index + 2);
+                    pending_arrow_body = follows_arrow;
                 }
                 b'/' if self.bytes.get(index + 1) == Some(&b'*') => {
                     index = self.skip_block_comment(index)?;
+                    pending_arrow_body = follows_arrow;
                 }
                 b'/' if can_start_expression => {
                     index = self.skip_regex(index)?;
@@ -165,9 +179,19 @@ impl Scanner<'_> {
                     pending_statement_body = false;
                 }
                 b'@' if self.bytes.get(index + 1) == Some(&b'{') => {
-                    self.push_token(StructuralKind::FunctionBody, index)?;
-                    index += 1;
-                    can_start_expression = true;
+                    let direct_template_child = template_body && delimiters.len() == 1;
+                    if (can_start_expression || pending_statement_body)
+                        && !follows_arrow
+                        && !direct_template_child
+                    {
+                        index =
+                            self.scan_parser_code_block(index, ParserCodeBlockKind::Expression)?;
+                        can_start_expression = false;
+                    } else {
+                        self.push_token(StructuralKind::FunctionBody, index)?;
+                        index += 1;
+                        can_start_expression = true;
+                    }
                     can_start_jsx = true;
                     pending_control_paren = false;
                     closed_control_paren = false;
@@ -359,6 +383,8 @@ impl Scanner<'_> {
                     pending_statement_body = false;
                 }
                 _ => {
+                    pending_arrow_body =
+                        byte == b'>' && previous_significant_byte(self.bytes, index) == Some(b'=');
                     index += 1;
                     can_start_expression = !matches!(byte, b']');
                     can_start_jsx = can_start_expression || matches!(byte, b';');
