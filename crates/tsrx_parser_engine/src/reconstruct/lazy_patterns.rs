@@ -187,6 +187,11 @@ fn declarator_for_pattern(
         {
             return Ok(Some(declarator));
         }
+        if has_type(tape, declarator, r#""CatchClause""#)
+            && object_field(tape, declarator, "param")? == pattern
+        {
+            return Ok(None);
+        }
         return Err(TsrxParseError::Unsupported("lazy pattern has an unsupported object parent"));
     }
     let list =
@@ -198,11 +203,14 @@ fn declarator_for_pattern(
     if !matches!(
         super::access::object_type(tape, function),
         Some(
-            r#""FunctionDeclaration""# | r#""FunctionExpression""# | r#""ArrowFunctionExpression""#
+            r#""FunctionDeclaration""#
+                | r#""FunctionExpression""#
+                | r#""ArrowFunctionExpression""#
+                | r#""CatchClause""#
         )
     ) {
         return Err(TsrxParseError::Unsupported(
-            "lazy pattern list is not a function parameter list",
+            "lazy pattern list is not a supported parameter list",
         ));
     }
     Ok(None)

@@ -276,6 +276,7 @@ impl Scanner<'_> {
             let after_keyword = self.skip_trivia(Self::after_keyword(catch_start, b"catch"))?;
             let (header, bindings, catch_body_start) =
                 if self.bytes.get(after_keyword) == Some(&b'(') {
+                    self.register_lazy_catch_parameter(after_keyword)?;
                     let (header, after_header) = self.parse_parenthesized(after_keyword)?;
                     let bindings = self.catch_binding_count(header)?;
                     (header, bindings, self.skip_trivia(after_header)?)
