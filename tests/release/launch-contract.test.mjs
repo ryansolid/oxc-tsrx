@@ -153,7 +153,17 @@ test("launch manifest names every byte set and keeps external actions approval-g
     workflow,
     /configure-pages|upload-pages-artifact|deploy-pages|github-pages/iu,
   );
-  assert.doesNotMatch(workflow, /npm publish|vsce publish|git push|curl .*social/iu);
+  assert.doesNotMatch(workflow, /npm publish|vsce publish|curl .*social/iu);
+  // The one git push this workflow is allowed is the wasm-pin commit that
+  // retriggers the oxc.tsrx.dev Vercel build; anything else pushing from the
+  // site workflow is still a contract violation.
+  const sitePushes = workflow.match(/git push/gu) ?? [];
+  assert.equal(sitePushes.length, 1, "site-artifact.yml may push only the wasm pin");
+  assert.match(
+    workflow,
+    /wasm-pin\.json[\s\S]{0,3000}git push|git push[\s\S]{0,3000}wasm-pin\.json/u,
+    "the sole git push must belong to the wasm-pin step",
+  );
 });
 
 test("all platform-independent npm payloads pass pack dry-run", async () => {
