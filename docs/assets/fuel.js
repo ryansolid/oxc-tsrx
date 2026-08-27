@@ -83,6 +83,17 @@ gl_FragColor=vec4(ramp(clamp(heat,0.,1.))*a*d,a*mix(1.,d,uL));}`
 // and the cool lane keep the stops they had.
 const lit = () => (document.documentElement.classList.contains('dark') ? 0 : 1)
 
+// Reduced motion used to skip this module entirely, which left the CSS
+// fallback gradient showing: a different, flatter picture than everyone else
+// sees. The preference is about MOTION, not about the fire, so the shader
+// still runs — it just paints exactly one frame per bar and never starts the
+// rAF loop. Repaints on resize and on a theme swap keep that same frame.
+const still = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+// An arbitrary but non-zero clock: at t=0 the fbm domain sits on its lattice
+// and the plume reads unnaturally smooth, so the frozen frame is sampled from
+// mid-burn instead.
+const STILL_SECONDS = 6.5
+
 // The dark field dissolves into the track, so the canvas is transparent and the
 // shader writes premultiplied colour to match premultipliedAlpha.
 // prettier-ignore
@@ -172,13 +183,14 @@ function paint(item, seconds) {
 }
 
 export function init(rows, cleanups) {
+  const frozen = still()
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   const items = []
   for (const row of rows) {
     const item = build(row, dpr)
     if (!item) continue
     resize(item)
-    paint(item, 0)
+    paint(item, frozen ? STILL_SECONDS : 0)
     if (item.dead) continue
     item.track.append(item.canvas)
     // The CSS fill is the no-JS fallback only. Left visible it sits opaque
@@ -191,8 +203,10 @@ export function init(rows, cleanups) {
 
   const start = performance.now()
   // Wrapped: an unbounded clock eventually costs the hash its precision.
-  const clock = () => ((performance.now() - start) / 1000) % 300
-  const awake = () => items.some((it) => it.seen)
+  // Under reduced motion the clock never advances, so every repaint below
+  // reproduces the one frame already on screen.
+  const clock = () => (frozen ? STILL_SECONDS : ((performance.now() - start) / 1000) % 300)
+  const awake = () => !frozen && items.some((it) => it.seen)
   let raf = 0
 
   const frame = () => {
@@ -204,13 +218,17 @@ export function init(rows, cleanups) {
   const wake = () => {
     if (!raf && awake()) raf = requestAnimationFrame(frame)
   }
-  const io = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      const item = items.find((it) => it.track === entry.target)
-      if (item) item.seen = entry.isIntersecting
-    }
-    wake()
-  })
+  // Visibility only matters as an animation gate, so reduced motion skips it:
+  // the single frame is already painted and nothing needs waking.
+  const io = frozen
+    ? null
+    : new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          const item = items.find((it) => it.track === entry.target)
+          if (item) item.seen = entry.isIntersecting
+        }
+        wake()
+      })
   const ro = new ResizeObserver(() => {
     for (const item of items) if (resize(item) && !raf) paint(item, clock())
   })
@@ -226,14 +244,14 @@ export function init(rows, cleanups) {
   })
   mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
   for (const item of items) {
-    io.observe(item.track)
+    io?.observe(item.track)
     ro.observe(item.track)
   }
 
   cleanups.push(() => {
     if (raf) cancelAnimationFrame(raf)
     raf = 0
-    io.disconnect()
+    io?.disconnect()
     ro.disconnect()
     mo.disconnect()
     for (const item of items) {

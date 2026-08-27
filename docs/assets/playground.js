@@ -3,6 +3,12 @@
 // oxfmt formatting shown as a reviewable diff, opt-in type-aware runs, rule
 // severity filters, Oxlint config, and shareable URL snippets.
 
+// app.js imports this module with the ?v=<hash> stamp it was itself loaded
+// with, but `new URL('./x.js', import.meta.url)` drops the query, so a lazy
+// sibling would be fetched unversioned and could be served stale forever.
+// Re-append our own search to every lazy import (empty when served unversioned).
+const ASSET_VERSION = new URL(import.meta.url).search
+
 const escapeHtml = (text) =>
   String(text)
     .replaceAll('&', '&amp;')
@@ -136,7 +142,9 @@ export async function initDemo(panel) {
   // (see armClientHighlighter below).
   let clientHighlighterPromise = null
   const startClientHighlighter = () =>
-    (clientHighlighterPromise ??= import(new URL('./demo-highlighter.js', import.meta.url))
+    (clientHighlighterPromise ??= import(
+      new URL(`./demo-highlighter.js${ASSET_VERSION}`, import.meta.url)
+    )
       .then((module) => module.createDemoHighlighter())
       .catch(() => null))
 
@@ -161,12 +169,12 @@ export async function initDemo(panel) {
     let realBackend = null
     let backendPromise = null
     const loadBackend = () =>
-      (backendPromise ??= import(new URL('./demo-wasm-backend.js', import.meta.url)).then(
-        (module) => {
-          realBackend = module.createWasmBackend(() => startClientHighlighter())
-          return realBackend
-        },
-      ))
+      (backendPromise ??= import(
+        new URL(`./demo-wasm-backend.js${ASSET_VERSION}`, import.meta.url)
+      ).then((module) => {
+        realBackend = module.createWasmBackend(() => startClientHighlighter())
+        return realBackend
+      }))
     backend = (endpoint, body) =>
       realBackend
         ? realBackend(endpoint, body)
