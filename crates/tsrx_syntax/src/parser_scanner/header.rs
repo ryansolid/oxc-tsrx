@@ -3,7 +3,7 @@
 
 use crate::{
     diagnostics::{ProjectionError, to_u32},
-    model::{ByteSpan, ClauseRole, ForHeader},
+    model::{ByteSpan, ClauseRole, ForHeader, ParserLazyPattern},
 };
 
 use super::Scanner;
@@ -11,6 +11,34 @@ use super::lexical::trim_ascii_end;
 use super::stack::TinyStack;
 
 impl Scanner<'_> {
+    pub(super) fn register_lazy_catch_parameter(
+        &mut self,
+        open: usize,
+    ) -> Result<(), ProjectionError> {
+        if self.bytes.get(open) != Some(&b'(') {
+            return Ok(());
+        }
+        let ampersand = self.skip_trivia(open + 1)?;
+        if self.bytes.get(ampersand) != Some(&b'&') {
+            return Ok(());
+        }
+        let pattern_start = self.skip_trivia(ampersand.saturating_add(1))?;
+        if !matches!(self.bytes.get(pattern_start), Some(b'{' | b'['))
+            || self
+                .parser_lazy_patterns
+                .iter()
+                .any(|pattern| pattern.ampersand as usize == ampersand)
+        {
+            return Ok(());
+        }
+        self.parser_lazy_patterns.push(ParserLazyPattern {
+            ampersand: to_u32(ampersand)?,
+            pattern_start: to_u32(pattern_start)?,
+            standalone: false,
+        });
+        Ok(())
+    }
+
     pub(super) fn parse_parenthesized(
         &mut self,
         start: usize,

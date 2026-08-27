@@ -190,6 +190,10 @@ fn declarator_for_pattern(
             {
                 return Ok(Some(owner));
             }
+            if owner_type == Some(r#""CatchClause""#) && field_value(tape, owner, "param")? == child
+            {
+                return Ok(None);
+            }
             let binding_child = match owner_type {
                 Some(r#""AssignmentPattern""#) => field_value(tape, owner, "left")?,
                 Some(r#""RestElement""#) => field_value(tape, owner, "argument")?,
@@ -222,6 +226,7 @@ fn declarator_for_pattern(
                 | r#""FunctionExpression""#
                 | r#""ArrowFunctionExpression""#,
             ) if list_field(tape, owner, "params")? == list => return Ok(None),
+            Some(r#""CatchClause""#) => return Ok(None),
             Some(r#""ObjectPattern""#) if list_field(tape, owner, "properties")? == list => {
                 child = ValueRef::object(owner);
             }

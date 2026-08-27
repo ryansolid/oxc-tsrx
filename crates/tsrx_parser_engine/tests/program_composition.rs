@@ -235,7 +235,9 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
             <li>{label}</li>\n\
         }</ul>\n\
     }\n\
-    function Param(&{ greeting, name }: any) @{ <p>{greeting + name}</p> }";
+    function Param(&{ greeting, name }: any) @{ <p>{greeting + name}</p> }\n\
+    function Catch() @{ @try { <A/> } @catch /* gap */ (&{ message }, reset) { <p>{message}</p> } }\n\
+    function Ordinary() { try {} catch /* gap */ (&{ cause }) { console.log(cause); } }";
     let result = parse_tsrx(&TsrxParseRequest { source }).expect("lazy destructuring patterns");
     let tape = result.program();
     let mut patterns = Vec::new();
@@ -260,7 +262,7 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
             declarators.push(object);
         }
     }
-    assert_eq!(patterns.len(), 4);
+    assert_eq!(patterns.len(), 6);
     for pattern in patterns {
         assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
         let (pattern_start, _) = span(tape, pattern);
@@ -274,6 +276,56 @@ fn lazy_destructuring_patterns_preserve_markers_in_declarations_and_for_headers(
         assert_eq!(source.as_bytes()[usize::try_from(pattern_start - 1).expect("offset")], b'&');
     }
     assert_no_scaffold(tape);
+}
+
+#[test]
+fn lazy_catch_bindings_accept_trivia_between_the_sigil_and_the_pattern() {
+    let source = "function Block() { try {} catch (&/* gap */{ cause }) { report(cause); } }\n\
+        function Line() { try {} catch (&// gap\n{ reason }) { report(reason); } }\n\
+        function Clause() @{ @try { <A/> } @catch (&/* gap */{ message }, reset) { <p>{message}</p> } }";
+    let overlay = scan_for_parser(source).expect("catch trivia overlay");
+    let projection = project_for_parser(source, &overlay).expect("catch trivia projection");
+    assert!(!projection.source().contains('&'));
+    assert!(projection.source().contains("(/* gap */{ cause })"));
+    assert!(projection.source().contains("(// gap\n{ reason })"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("lazy catch bindings with trivia");
+    let tape = result.program();
+    let patterns = (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                .is_some_and(|kind| matches!(kind, r#""ArrayPattern""# | r#""ObjectPattern""#))
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(patterns.len(), 3);
+    for pattern in patterns {
+        assert_eq!(scalar_field(tape, pattern, "lazy"), "true");
+        let (pattern_start, _) = span(tape, pattern);
+        let sigil = source[..usize::try_from(pattern_start).expect("offset")]
+            .rfind('&')
+            .expect("authored sigil");
+        assert!(source[sigil + 1..usize::try_from(pattern_start).expect("offset")].contains("gap"));
+    }
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn lazy_catch_bindings_reject_defaults_and_later_binding_slots() {
+    // A catch binding never carries a default, so the lazy spelling fails exactly where the
+    // ordinary one does rather than reconstructing into a shape the authored grammar rejects.
+    assert_failed("function A() { try {} catch (&{ msg } = {}) { report(msg); } }");
+    assert_failed("function B() { try {} catch ({ msg } = {}) { report(msg); } }");
+    assert_failed("function C() { try {} catch (&[first] = []) { report(first); } }");
+    assert_failed("function D() { try {} catch ([first] = []) { report(first); } }");
+    assert_failed("function E() @{ @try { <A/> } @catch (&{ message } = {}, reset) { <p/> } }");
+    // Only the first slot binds the caught value; the reset binding stays an identifier, so a
+    // sigil in a later slot is never a lazy pattern.
+    assert_failed("function F() { try {} catch (error, &{ message }) { report(message); } }");
+    assert_failed("function G() @{ @try { <A/> } @catch (error, &{ message }) { <p/> } }");
 }
 
 #[test]
