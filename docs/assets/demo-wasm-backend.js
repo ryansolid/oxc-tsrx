@@ -1,7 +1,7 @@
 // In-browser demo backend: routes the playground's API calls to the real
 // lint, format, and projection engines compiled to WebAssembly (NAPI-RS,
 // wasm32-wasip1-threads). Response shapes mirror docs/serve.mjs exactly so
-// playground.js cannot tell the difference between this and the native server.
+// demo-panel.js cannot tell the difference between this and the native server.
 
 let enginePromise = null
 const loadEngine = () =>
