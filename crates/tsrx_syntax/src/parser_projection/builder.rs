@@ -123,7 +123,13 @@ impl<'a> Builder<'a> {
             if pattern.ampersand < span.start || pattern.ampersand >= span.end {
                 continue;
             }
-            self.copy_original(ByteSpan::new(cursor, pattern.ampersand))?;
+            // A bare loop target opens `left` with the sigil, so there is nothing authored to copy
+            // ahead of it. Copying the empty span anyway records a degenerate segment, which splits
+            // the one authored gap the caller left before the pattern into two consumptions and
+            // fails `consume_allowed_gap` as a non-canonical affine projection map.
+            if cursor < pattern.ampersand {
+                self.copy_original(ByteSpan::new(cursor, pattern.ampersand))?;
+            }
             cursor = pattern.ampersand.saturating_add(1);
         }
         self.copy_original(ByteSpan::new(cursor, span.end))

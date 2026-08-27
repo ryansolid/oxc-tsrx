@@ -100,6 +100,7 @@ impl Scanner<'_> {
             is_await = true;
             index = self.skip_trivia(Self::after_bare_keyword(index, b"await"))?;
         }
+        self.register_lazy_loop_target(index)?;
         let (header, after_header) = self.parse_parenthesized(index)?;
         let mut for_header = self.analyze_for_header(header)?;
         for_header.r#await = is_await;

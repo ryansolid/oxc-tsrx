@@ -329,6 +329,133 @@ fn lazy_catch_bindings_reject_defaults_and_later_binding_slots() {
 }
 
 #[test]
+fn bare_lazy_loop_targets_bind_for_of_and_for_in_patterns() {
+    let source = "async function Ordinary(props: any) {\n\
+        for (&{ first, last } of props.pairs) { record(first, last); }\n\
+        for (&[key] in props.table) { record(key); }\n\
+        for await (& /* gap */ { chunk } of props.stream) { record(chunk); }\n\
+        for (const &{ id } of props.items) { record(id); }\n\
+    }\n\
+    function View(props: any) @{\n\
+        <ul>@for (&{ id, label } of props.items) {\n\
+            <li>{label}</li>\n\
+        }</ul>\n\
+    }";
+    let overlay = scan_for_parser(source).expect("bare loop target overlay");
+    let projection = project_for_parser(source, &overlay).expect("bare loop target projection");
+    assert!(!projection.source().contains('&'));
+    assert!(projection.source().contains("for ({ first, last } of props.pairs)"));
+    assert!(projection.source().contains("for ([key] in props.table)"));
+    assert!(projection.source().contains("for await ( /* gap */ { chunk } of props.stream)"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("bare lazy loop targets");
+    let tape = result.program();
+    // Four bare targets and the declared counterpart, which still reaches the declaration lane.
+    assert_eq!(lazy_pattern_count(tape), 5);
+
+    let mut bare_targets = 0;
+    for raw in 0..tape.object_count() {
+        let object = RecordIndex::new(u32::try_from(raw).expect("object index"));
+        let kind = tape
+            .field_index(object, "type")
+            .and_then(|field| tape.field_value(field))
+            .and_then(|value| tape.scalar(value));
+        // The TSRX `@for` keeps the same `left`; only its node type is rewritten.
+        if !matches!(
+            kind,
+            Some(r#""ForOfStatement""# | r#""ForInStatement""# | r#""JSXForExpression""#)
+        ) {
+            continue;
+        }
+        let left = object_field(tape, object, "left");
+        if tape.field_index(left, "lazy").is_none() {
+            continue;
+        }
+        bare_targets += 1;
+        assert_eq!(scalar_field(tape, left, "lazy"), "true");
+        // The sigil belongs to no node: the pattern's authored span still opens at its delimiter,
+        // with only trivia between the two.
+        let (pattern_start, _) = span(tape, left);
+        let pattern_start = usize::try_from(pattern_start).expect("offset");
+        assert!(matches!(source.as_bytes()[pattern_start], b'{' | b'['));
+        let sigil = source[..pattern_start].rfind('&').expect("authored sigil");
+        // Only trivia separates the sigil from the pattern it marks.
+        assert!(source[sigil + 1..pattern_start].replace("/* gap */", "").trim().is_empty());
+    }
+    assert_eq!(bare_targets, 4);
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn loop_headers_without_an_of_or_in_target_keep_their_bitwise_ampersands() {
+    // The iterable is an ordinary expression, so `&` there stays a bitwise `and` however closely
+    // it is written to an object literal.
+    let source = "function Masks(props: any) @{\n\
+        for (const value of props.flags & props.mask) { record(value); }\n\
+        for (const bit of props.masks&{ length: 0 }) { record(bit); }\n\
+        <p>{props.name}</p>\n\
+    }";
+    let overlay = scan_for_parser(source).expect("bitwise loop overlay");
+    let projection = project_for_parser(source, &overlay).expect("bitwise loop projection");
+    assert!(projection.source().contains("props.flags & props.mask"));
+    assert!(projection.source().contains("props.masks&{ length: 0 }"));
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("bitwise loop headers");
+    assert_eq!(lazy_pattern_count(result.program()), 0);
+
+    // A C-style header has no assignment target at all, so the sigil is never admitted there and
+    // the `&{ … }` that survives into the projection is the syntax error it always was.
+    assert_failed("function A() { for (&{ bit }; index < 4; index += 1) { report(bit); } }");
+    assert_failed("function B() @{ @for (&{ bit }; index < 4; index += 1) { <p/> } }");
+}
+
+#[test]
+fn bare_lazy_loop_targets_bind_in_annotated_for_headers() {
+    // An annotated `@for` rewrites its header clause by clause instead of copying it, so the sigil
+    // is dropped out of the rewritten `left` even when it is the first byte of that clause.
+    let source = "function Object(props: any) @{\n\
+        <ol>@for (&{ id, label } of props.items; index i; key id) {\n\
+            <li>{i}{label}</li>\n\
+        }</ol>\n\
+    }\n\
+    function Array(props: any) @{\n\
+        <ul>@for (&[head] of props.pairs; index j) {\n\
+            <li>{j}{head}</li>\n\
+        }</ul>\n\
+    }";
+    let overlay = scan_for_parser(source).expect("annotated loop target overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("annotated loop target projection");
+    assert!(!projection.source().contains('&'));
+
+    let result =
+        parse_tsrx(&TsrxParseRequest { source }).expect("annotated bare lazy loop targets");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 2);
+
+    let mut bare_targets = 0;
+    for raw in 0..tape.object_count() {
+        let object = RecordIndex::new(u32::try_from(raw).expect("object index"));
+        let kind = tape
+            .field_index(object, "type")
+            .and_then(|field| tape.field_value(field))
+            .and_then(|value| tape.scalar(value));
+        if kind != Some(r#""JSXForExpression""#) {
+            continue;
+        }
+        let left = object_field(tape, object, "left");
+        assert_eq!(scalar_field(tape, left, "lazy"), "true");
+        bare_targets += 1;
+        // The sigil belongs to no node: the pattern's authored span opens at its own delimiter.
+        let (pattern_start, _) = span(tape, left);
+        let pattern_start = usize::try_from(pattern_start).expect("offset");
+        assert!(matches!(source.as_bytes()[pattern_start], b'{' | b'['));
+        assert_eq!(source.as_bytes()[pattern_start - 1], b'&');
+    }
+    assert_eq!(bare_targets, 2);
+    assert_no_scaffold(tape);
+}
+
+#[test]
 fn lazy_arrow_parameters_preserve_patterns_types_defaults_and_async_arrows() {
     let source = "const View = (&{ name, title = name }: Props): string => title;\n\
         const select = async (prefix: string, /* gap */ &[first, ...rest]: Items = items) => [prefix, first, rest];\n\
@@ -471,6 +598,180 @@ fn lazy_arrow_lookahead_reads_a_function_return_type_as_part_of_the_annotation()
     let overlay = scan_for_parser(source).expect("arrow function type overlay");
     let projection = project_for_parser(source, &overlay).expect("arrow function type projection");
     assert!(!projection.source().contains("(&{ a }"));
+}
+
+#[test]
+fn lazy_arrow_lookahead_stops_at_a_parenthesised_function_type() {
+    // `((x: number) => number)` carries its own arrow inside the parentheses, so the `=>` that
+    // follows the annotation is the lazy arrow's and the parameter has to commit.
+    let source = "const wrap = (&{ a }): ((x: number) => number) => (x) => x + a;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("parenthesised function type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("parenthesised function type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("parenthesised function type");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // The same annotation over a method keeps its `{ … }` body, so nothing may commit.
+    let source = "const helpers = {\n\
+        build(&{ a }): ((x: number) => number) { return (x) => x + a }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("parenthesised method type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("parenthesised method type projection");
+    assert!(projection.source().contains("build(&{ a })"));
+
+    // A parameter list whose own parameter is annotated with a function type is still a function
+    // head, so its trailing `=>` belongs to the annotation rather than to the arrow.
+    let source = "const helpers = {\n\
+        chain(&{ a }): (step: (x: number) => number) => number { return (step) => step(a) }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("nested function type overlay");
+    let projection = project_for_parser(source, &overlay).expect("nested function type projection");
+    assert!(projection.source().contains("chain(&{ a })"));
+
+    // The completed function type still takes the postfix and union continuations that follow any
+    // other type, and a constructor type's parameter list remains a function head.
+    let source = "const union = (&{ a }): ((x: number) => number) | null => null;\n\
+        const array = (&{ b }): ((x: number) => number)[] => [];\n\
+        const made = (&{ c }): new (x: number) => number => c;";
+    let overlay = scan_for_parser(source).expect("completed function type overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("completed function type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(!projection.source().contains("(&{ b }"));
+    assert!(!projection.source().contains("(&{ c }"));
+}
+
+#[test]
+fn optional_parameter_markers_in_a_function_type_do_not_open_a_conditional_type() {
+    // `step?` is an untyped optional parameter, so the `:` that follows belongs to `next`'s
+    // annotation. Reading the `?` as a conditional type would spend that `:` on a branch and let
+    // the inner `=>` complete the type, which would misread the method's annotation as an arrow
+    // and commit a marker that has no arrow to commit to.
+    let source = "const helpers = {\n\
+        chain(&{ a }): (step?, next: (x: number) => number) => number { return (s, n) => n(a) }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("optional parameter method overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("optional parameter method projection");
+    assert!(projection.source().contains("chain(&{ a })"));
+
+    // The arrow counterpart ends the same annotation at the `=>` that really is the lazy arrow's,
+    // so its marker still has to commit.
+    let source = "const build = (&{ a }): (step?, next: (x: number) => number) => number =>\n\
+        (s, n) => n(a);\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("optional parameter arrow overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("optional parameter arrow projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("optional parameter arrow");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // An optional parameter closing the list directly reads the same way on both sides.
+    let source = "const helpers = {\n\
+        last(&{ a }): (step?) => number { return (s) => a }\n\
+        }\n\
+        const only = (&{ b }): (step?) => number => (s) => b;";
+    let overlay = scan_for_parser(source).expect("trailing optional parameter overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("trailing optional parameter projection");
+    assert!(projection.source().contains("last(&{ a })"));
+    assert!(!projection.source().contains("(&{ b }"));
+
+    // A `?` with a type after it still opens a conditional type, whose `:` spends the branch
+    // rather than opening an annotation, so the `=>` inside completes the type and the `=>` that
+    // follows the whole annotation is the arrow's.
+    let source = "const pick = (&{ a }): (A extends B ? C : (x: T) => U) => a;\n\
+        const helpers = {\n\
+        pick(&{ b }): (A extends B ? C : (x: T) => U) { return b }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("conditional type overlay");
+    let projection = project_for_parser(source, &overlay).expect("conditional type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(projection.source().contains("pick(&{ b })"));
+}
+
+#[test]
+fn parameter_type_intersections_are_not_queued_as_lazy_patterns() {
+    let source = "const pick = (x: &{ a: number }) => x;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("intersection annotation overlay");
+    let projection =
+        project_for_parser(source, &overlay).expect("intersection annotation projection");
+    assert!(projection.source().contains("(x: &{ a: number })"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("intersection annotation");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 0);
+    assert_no_scaffold(tape);
+
+    // The same holds for an intersection whose left member closed with `}`, and beside a
+    // parameter that really does carry a lazy pattern.
+    let source = "const mix = (&{ a }, x: { b: number }&{ c: string }) => [a, x];";
+    let overlay = scan_for_parser(source).expect("mixed intersection overlay");
+    let projection = project_for_parser(source, &overlay).expect("mixed intersection projection");
+    assert!(!projection.source().contains("(&{ a }"));
+    assert!(projection.source().contains("{ b: number }&{ c: string }"));
+
+    // The rename form that made `:` an admitting predecessor still queues its pattern.
+    let source = "const rename = ({ a: &{ b } }) => b;";
+    let overlay = scan_for_parser(source).expect("rename overlay");
+    let projection = project_for_parser(source, &overlay).expect("rename projection");
+    assert!(!projection.source().contains("a: &{ b }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("destructuring rename");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+}
+
+#[test]
+fn lazy_arrow_lookahead_reads_an_import_type_return_annotation() {
+    let source = "const load = (&{ a }): import(\"mod\").Shape => a;\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("import type overlay");
+    let projection = project_for_parser(source, &overlay).expect("import type projection");
+    assert!(!projection.source().contains("(&{ a }"));
+
+    let result = parse_tsrx(&TsrxParseRequest { source }).expect("import type return annotation");
+    let tape = result.program();
+    assert_eq!(lazy_pattern_count(tape), 1);
+    assert_no_scaffold(tape);
+
+    // An import type over a method still leaves the `{ … }` body outside the annotation.
+    let source = "const helpers = {\n\
+        load(&{ a }): import(\"mod\").Shape { return a }\n\
+        }\n\
+        const run = (value) => value";
+    let overlay = scan_for_parser(source).expect("import type method overlay");
+    let projection = project_for_parser(source, &overlay).expect("import type method projection");
+    assert!(projection.source().contains("load(&{ a })"));
+}
+
+fn lazy_pattern_count(tape: &FlatTape) -> usize {
+    (0..tape.object_count())
+        .map(|raw| RecordIndex::new(u32::try_from(raw).expect("object index")))
+        .filter(|object| {
+            tape.field_index(*object, "type")
+                .and_then(|field| tape.field_value(field))
+                .and_then(|value| tape.scalar(value))
+                .is_some_and(|kind| matches!(kind, r#""ArrayPattern""# | r#""ObjectPattern""#))
+                && tape.field_index(*object, "lazy").is_some()
+        })
+        .count()
 }
 
 #[test]
