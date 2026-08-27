@@ -1,11 +1,35 @@
 // Site configuration for the static docs generator (docs/build.mjs).
+
+// The same source tree is published at two places: https://compiled.run/oxc-tsrx
+// (a sub-path of a shared domain) and https://oxc.tsrx.dev (its own domain, so
+// the site sits at the root). Only the origin and the base path differ, so both
+// are read from the environment with the compiled.run values as the defaults.
+// With SITE_ORIGIN and SITE_BASE unset the build is byte-identical to before.
+const DEFAULT_ORIGIN = 'https://compiled.run'
+const DEFAULT_BASE = '/oxc-tsrx/'
+
+// Trailing slashes are stripped so `${origin}${base}` never doubles up.
+const origin = (process.env.SITE_ORIGIN ?? DEFAULT_ORIGIN).trim().replace(/\/+$/, '')
+if (!/^https?:\/\/[^/\s]+$/.test(origin)) {
+  throw new Error(
+    `SITE_ORIGIN must be a scheme and host with no path, got: ${process.env.SITE_ORIGIN}`,
+  )
+}
+
+// Root-absolute, with a trailing slash. '' , '/' and '///' all mean the root.
+const normalizeBase = (value) => {
+  const segments = value.trim().split('/').filter(Boolean)
+  return segments.length > 0 ? `/${segments.join('/')}/` : '/'
+}
+const base = normalizeBase(process.env.SITE_BASE ?? DEFAULT_BASE)
+
 export default {
   title: 'OXC for TSRX',
   description:
     'Rust-native parsing, linting, formatting, and editor support for .tsrx source through canonical OXC. No fork, no patches, one parse.',
-  origin: 'https://compiled.run',
+  origin,
   // Root-absolute base path the site is served under, with trailing slash.
-  base: '/oxc-tsrx/',
+  base,
   repository: 'https://github.com/tsrx-org/oxc',
   nav: [
     { text: 'Guide', link: '/guide/introduction' },
