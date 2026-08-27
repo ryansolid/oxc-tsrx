@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    access::{field_value, has_type, list_field, object_field, scalar_u32},
+    access::{field_value, has_type, list_field, scalar_u32},
     edits::append_node_head,
     objects::find_unique_start,
     spans::{AuthoredStart, record_authored_span},
@@ -178,40 +178,66 @@ fn declarator_for_pattern(
     pattern: RecordIndex,
     parents: &ParentIndex,
 ) -> Result<Option<RecordIndex>, TsrxParseError> {
-    let parent = parents
-        .parent_container(tsrx_tape_schema::ValueRef::object(pattern))
-        .ok_or(TsrxParseError::Unsupported("lazy pattern has no parent"))?;
-    if let Some(declarator) = parent.as_object() {
-        if has_type(tape, declarator, r#""VariableDeclarator""#)
-            && object_field(tape, declarator, "id")? == pattern
-        {
-            return Ok(Some(declarator));
+    let mut child = ValueRef::object(pattern);
+    loop {
+        let parent = parents
+            .parent_container(child)
+            .ok_or(TsrxParseError::Unsupported("lazy pattern has no binding owner"))?;
+        if let Some(owner) = parent.as_object() {
+            let owner_type = super::access::object_type(tape, owner);
+            if owner_type == Some(r#""VariableDeclarator""#)
+                && field_value(tape, owner, "id")? == child
+            {
+                return Ok(Some(owner));
+            }
+            if owner_type == Some(r#""CatchClause""#) && field_value(tape, owner, "param")? == child
+            {
+                return Ok(None);
+            }
+            let binding_child = match owner_type {
+                Some(r#""AssignmentPattern""#) => field_value(tape, owner, "left")?,
+                Some(r#""RestElement""#) => field_value(tape, owner, "argument")?,
+                Some(r#""Property""#) => field_value(tape, owner, "value")?,
+                _ => {
+                    return Err(TsrxParseError::Unsupported(
+                        "lazy pattern has an unsupported binding parent",
+                    ));
+                }
+            };
+            if binding_child != child {
+                return Err(TsrxParseError::Unsupported(
+                    "lazy pattern is outside the binding side of its parent",
+                ));
+            }
+            child = parent;
+            continue;
         }
-        if has_type(tape, declarator, r#""CatchClause""#)
-            && object_field(tape, declarator, "param")? == pattern
-        {
-            return Ok(None);
-        }
-        return Err(TsrxParseError::Unsupported("lazy pattern has an unsupported object parent"));
-    }
-    let list =
-        parent.as_list().ok_or(TsrxParseError::Unsupported("lazy pattern parent is not a list"))?;
-    let function = parents
-        .parent_container(tsrx_tape_schema::ValueRef::list(list))
-        .and_then(tsrx_tape_schema::ValueRef::as_object)
-        .ok_or(TsrxParseError::Unsupported("lazy parameter has no function parent"))?;
-    if !matches!(
-        super::access::object_type(tape, function),
-        Some(
-            r#""FunctionDeclaration""#
+
+        let list = parent
+            .as_list()
+            .ok_or(TsrxParseError::Unsupported("lazy pattern parent is not a binding list"))?;
+        let owner = parents
+            .parent_container(ValueRef::list(list))
+            .and_then(ValueRef::as_object)
+            .ok_or(TsrxParseError::Unsupported("lazy pattern list has no owner"))?;
+        match super::access::object_type(tape, owner) {
+            Some(
+                r#""FunctionDeclaration""#
                 | r#""FunctionExpression""#
-                | r#""ArrowFunctionExpression""#
-                | r#""CatchClause""#
-        )
-    ) {
-        return Err(TsrxParseError::Unsupported(
-            "lazy pattern list is not a supported parameter list",
-        ));
+                | r#""ArrowFunctionExpression""#,
+            ) if list_field(tape, owner, "params")? == list => return Ok(None),
+            Some(r#""CatchClause""#) => return Ok(None),
+            Some(r#""ObjectPattern""#) if list_field(tape, owner, "properties")? == list => {
+                child = ValueRef::object(owner);
+            }
+            Some(r#""ArrayPattern""#) if list_field(tape, owner, "elements")? == list => {
+                child = ValueRef::object(owner);
+            }
+            _ => {
+                return Err(TsrxParseError::Unsupported(
+                    "lazy pattern list is not part of a binding pattern",
+                ));
+            }
+        }
     }
-    Ok(None)
 }
