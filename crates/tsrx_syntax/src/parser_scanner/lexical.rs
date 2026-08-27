@@ -339,6 +339,105 @@ impl Scanner<'_> {
         }
     }
 
+    pub(super) fn lazy_arrow_pattern_start(
+        &self,
+        ampersand: usize,
+        parameter_open: Option<usize>,
+        previous_token: Option<u8>,
+    ) -> Option<usize> {
+        parameter_open?;
+        let pattern_start = ampersand.checked_add(1)?;
+        if !matches!(self.bytes.get(pattern_start), Some(b'[' | b'{'))
+            || !(matches!(previous_token, Some(b'(' | b'[' | b'{' | b',' | b':'))
+                || self.follows_rest_spread(ampersand))
+        {
+            return None;
+        }
+        Some(pattern_start)
+    }
+
+    /// `...&{ … }` is a rest lazy parameter, so the spread's own `.` has to admit the pattern the
+    /// way an opening delimiter or a comma does.
+    fn follows_rest_spread(&self, ampersand: usize) -> bool {
+        let Some(dot) = (0..ampersand).rev().find(|index| !self.bytes[*index].is_ascii_whitespace())
+        else {
+            return false;
+        };
+        self.bytes.get(dot.saturating_sub(2)..=dot) == Some(b"...")
+    }
+
+    pub(super) fn arrow_follows_parameter_list(&self, mut index: usize) -> bool {
+        let Ok(next) = self.skip_trivia(index) else {
+            return false;
+        };
+        index = next;
+        if self.bytes.get(index..index + 2) == Some(b"=>") {
+            return true;
+        }
+        if self.bytes.get(index) != Some(&b':') {
+            return false;
+        }
+        index += 1;
+
+        let mut delimiters = Vec::new();
+        while index < self.bytes.len() {
+            match self.bytes[index] {
+                b'\'' | b'"' => {
+                    let Ok(end) = self.skip_quote(index, self.bytes[index]) else {
+                        return false;
+                    };
+                    index = end;
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'/') => {
+                    index = self.skip_line_comment(index + 2);
+                }
+                b'/' if self.bytes.get(index + 1) == Some(&b'*') => {
+                    let Ok(end) = self.skip_block_comment(index) else {
+                        return false;
+                    };
+                    index = end;
+                }
+                b'(' | b'[' | b'{' => {
+                    delimiters.push(match self.bytes[index] {
+                        b'(' => b')',
+                        b'[' => b']',
+                        b'{' => b'}',
+                        _ => unreachable!(),
+                    });
+                    index += 1;
+                }
+                // `<` opens type arguments only where a type may start: at the head of the
+                // annotation or nested in another argument list. Everywhere else it is a
+                // less-than comparison, and tracking it would leave a `>` outstanding forever.
+                b'<' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => {
+                    delimiters.push(b'>');
+                    index += 1;
+                }
+                byte @ (b')' | b']' | b'}' | b'>') if delimiters.last().copied() == Some(byte) => {
+                    delimiters.pop();
+                    index += 1;
+                    if byte == b'}' && delimiters.is_empty() {
+                        // A balanced top-level block ended the annotation, so whatever follows
+                        // belongs to a body rather than to this parameter list: only an
+                        // immediate `=>` still reads as an arrow.
+                        let Ok(next) = self.skip_trivia(index) else {
+                            return false;
+                        };
+                        return self.bytes.get(next..next + 2) == Some(b"=>");
+                    }
+                }
+                b'=' if delimiters.is_empty() && self.bytes.get(index + 1) == Some(&b'>') => {
+                    return true;
+                }
+                // An outstanding `>` means a `<` was read as type arguments it never opened, so
+                // stop here instead of trusting the rest of the scan.
+                b';' if delimiters.last().is_none_or(|delimiter| *delimiter == b'>') => return false,
+                _ => index += 1,
+            }
+        }
+        false
+    }
+
     pub(super) fn keyword_at(&self, index: usize, keyword: &[u8]) -> bool {
         let end = index + 1 + keyword.len();
         self.bytes.get(index) == Some(&b'@')
