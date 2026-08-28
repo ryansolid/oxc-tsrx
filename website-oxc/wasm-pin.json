@@ -1,9 +1,9 @@
 {
   "tag": "wasm-demo-latest",
-  "inputsHash": "095a4c240e52ef0694db9309ae6db4ce313440a09bae5ecab30ce56d503c4e54",
-  "sourceCommit": "da80d0b80348e43a38daf73e3fe069473dd2d5a0",
+  "inputsHash": "73c1a3d1a000492bfc7f187be071877afb06fb1e05cd925e0421ff0ec035a748",
+  "sourceCommit": "19790bb0a2b0d18db47af4c2bcb37f76210b6a08",
   "wasm": {
-    "sha256": "a9d9d8afb84ee7c2a132b4e9f194abd82ecdbfa730dc75136a07f72848225ad0",
+    "sha256": "7dd54638714a98685f360eb3f8552b38580678347dbc5b32ea9ddaaab04b6857",
     "bytes": 9487535
   },
   "worker": {
