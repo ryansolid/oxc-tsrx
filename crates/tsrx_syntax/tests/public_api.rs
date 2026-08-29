@@ -275,6 +275,79 @@ fn unformatted_projection_round_trips_through_checked_lift() {
 }
 
 #[test]
+fn parser_only_scaffolds_round_trip_through_the_format_projection() {
+    for source in [
+        "const value = @{ const ready = true; ready };\n",
+        "const view = <main>@{ const ready = true; <p>{ready}</p> }</main>;\n",
+        "const view = <Card {label} />;\n",
+        "const &{ value = 1, ...rest } = source;\n",
+        "&[first, ...rest] = source;\n",
+        "const rows = <List>{items.map((&{ id, label }) => <p>{id}{label}</p>)}</List>;\n",
+        "const view = <main>@{ const &{ value } = source; <p {value} /> }</main>;\n",
+        "const view = <script>if (ready) console.log(\"raw\");</script>;\n",
+    ] {
+        let projection =
+            project_for_format(source, &tsrx_syntax::scan_for_parser(source).unwrap()).unwrap();
+        let lifted = lift_formatted(projection.source(), source, &projection)
+            .unwrap_or_else(|error| panic!("failed to lift {source:?}: {error}"));
+        assert_eq!(lifted, source);
+    }
+}
+
+#[test]
+fn lint_projection_maps_authored_parser_leaves_but_not_scaffolding() {
+    let source = concat!(
+        "const value = @{ console.log(input); input };\n",
+        "const &{ label } = props;\n",
+        "const view = <Card {label} />;\n",
+        "const raw = <script>console.log('opaque');</script>;\n",
+    );
+    let projection = project_for_lint(source, &scan(source).unwrap()).unwrap();
+    for needle in ["console.log(input)", "{ label }", "{label}"] {
+        let projected = projection.source().find(needle).unwrap();
+        let authored = source.find(needle).unwrap();
+        let mapped = projection
+            .map_range(
+                u32::try_from(projected).unwrap()..u32::try_from(projected + needle.len()).unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            mapped,
+            u32::try_from(authored).unwrap()..u32::try_from(authored + needle.len()).unwrap(),
+            "{needle}"
+        );
+    }
+    let generated = projection.source().find("_t0_").unwrap();
+    assert!(
+        projection
+            .map_range(
+                u32::try_from(generated).unwrap()..u32::try_from(generated + "_t0_".len()).unwrap()
+            )
+            .is_none()
+    );
+    assert!(!projection.source().contains("console.log('opaque')"));
+}
+
+#[test]
+fn checked_lift_rejects_changed_parser_scaffold_identity() {
+    let source = concat!(
+        "const value = @{ input };\n",
+        "const &{ label } = props;\n",
+        "const view = <Card {label}><script>raw()</script></Card>;\n",
+    );
+    let projection =
+        project_for_format(source, &tsrx_syntax::scan_for_parser(source).unwrap()).unwrap();
+    for changed in [
+        projection.source().replacen("_t0_X0P__", "_t0_X9P__", 1),
+        projection.source().replacen("_t0_Y0__", "_t0_Y9__", 1),
+        projection.source().replacen("_t0_V0_", "_t0_V9_", 1),
+        projection.source().replacen("_t0_L0__", "_t0_L9__", 1),
+    ] {
+        assert!(lift_formatted(&changed, source, &projection).is_err(), "{changed}");
+    }
+}
+
+#[test]
 fn switch_try_projection_round_trips_and_checks_method_identity() {
     let source = concat!(
         "function View() @{<main>@switch(value){@case 0:{@try{<b/>}",
